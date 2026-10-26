@@ -9,6 +9,8 @@ import org.apache.commons.lang3.time.StopWatch;
 
 import forge.LobbyPlayer;
 import forge.ai.AiProfileUtil;
+import forge.ai.LobbyPlayerRandom;
+import forge.ai.PlayerControllerRandom;
 import forge.deck.Deck;
 import forge.deck.DeckGroup;
 import forge.deck.io.DeckSerializer;
@@ -36,6 +38,9 @@ import forge.util.WordUtil;
 import forge.util.storage.IStorage;
 
 public class SimulateMatch {
+    /** Pseudo AI profile name selecting the random legal-action probe controller. */
+    public static final String RANDOM_PROFILE = "Random";
+
     public static void simulate(String[] args) {
         FModel.initialize(null, null);
 
@@ -123,6 +128,9 @@ public class SimulateMatch {
         List<String> aiProfiles = params.get("a");
         if (aiProfiles != null) {
             for (String profile : aiProfiles) {
+                if (RANDOM_PROFILE.equals(profile)) {
+                    continue; // probe: random legal-action controller, not an AI profile
+                }
                 if (!AiProfileUtil.getProfilesDisplayList().contains(profile)) {
                     System.out.println(TextUtil.concatNoSpace("Unknown AI profile - ", profile,
                             ". Available profiles: ", String.join(", ", AiProfileUtil.getProfilesDisplayList())));
@@ -155,7 +163,11 @@ public class SimulateMatch {
                 } else {
                     rp = new RegisteredPlayer(d);
                 }
-                rp.setPlayer(GamePlayerUtil.createAiPlayer(name, i - 1, profile));
+                if (RANDOM_PROFILE.equals(profile)) {
+                    rp.setPlayer(new LobbyPlayerRandom(name));
+                } else {
+                    rp.setPlayer(GamePlayerUtil.createAiPlayer(name, i - 1, profile));
+                }
                 pp.add(rp);
                 i++;
             }
@@ -246,6 +258,15 @@ public class SimulateMatch {
             System.out.printf("\nGame Result: Game %d ended in a Draw! Took %d ms.%n", 1 + iGame, sw.getTime());
         } else {
             System.out.printf("\nGame Result: Game %d ended in %d ms. %s has won!\n%n", 1 + iGame, sw.getTime(), g1.getOutcome().getWinningLobbyPlayer().getName());
+        }
+        System.out.printf("GameTurns: Game %d turns=%d%n", 1 + iGame, g1.getPhaseHandler().getTurn());
+        for (RegisteredPlayer rp : mc.getPlayers()) {
+            if (rp.getPlayer() instanceof LobbyPlayerRandom) {
+                PlayerControllerRandom ctrl = ((LobbyPlayerRandom) rp.getPlayer()).getLastController();
+                if (ctrl != null) {
+                    System.out.println(ctrl.statsLine());
+                }
+            }
         }
     }
 

@@ -1,16 +1,23 @@
 package forge.ai;
 
+import forge.card.MagicColor;
+import forge.card.mana.ManaCostShard;
+import forge.game.Game;
 import forge.game.card.Card;
 import forge.game.card.CardLists;
 import forge.game.card.CardView;
+import forge.game.mana.ManaCostBeingPaid;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
 import forge.game.zone.ZoneType;
 import org.tinylog.Logger;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -20,6 +27,18 @@ import java.util.stream.Collectors;
 public final class AvailableActions {
 
     private AvailableActions() {}
+
+    /**
+     * Cards a human snoozed (Forge Table: "this doesn't count as something to do"), per game and player id, by card id.
+     * Per player, not per game: in a game between two people each one's snoozes are their own. (Keyed by the Game, whose
+     * equality is identity; a Player equals any other with its id, so a later game would inherit its snoozes.)
+     */
+    private static final Map<Game, Map<Integer, Set<Integer>>> SNOOZED = Collections.synchronizedMap(new WeakHashMap<>());
+
+    /** Snoozed cards never count as available actions (so auto-pass-if-no-actions passes over them). */
+    public static void setSnoozed(final Player player, final Set<Integer> cardIds) {
+        SNOOZED.computeIfAbsent(player.getGame(), g -> new java.util.concurrent.ConcurrentHashMap<>()).put(player.getId(), Set.copyOf(cardIds));
+    }
 
     /** sortByCmc: cheap-cost-first so early-exit hits faster.
      *  Battlefield isn't sorted: activation costs are per-ability, not the permanent's CMC. */
@@ -54,6 +73,7 @@ public final class AvailableActions {
         long deadlineNanos = System.nanoTime() + timeoutMs * 1_000_000L;
         Set<CardView> actionable = new HashSet<>();
         Set<CardView> visited = new HashSet<>();
+        final Set<Integer> snoozed = SNOOZED.getOrDefault(player.getGame(), Map.of()).getOrDefault(player.getId(), Set.of());
 
         for (ZoneScan scan : SCANS) {
             Iterable<Card> cards = scan.sortByCmc()
@@ -66,6 +86,9 @@ public final class AvailableActions {
                 }
                 CardView cv = card.getView();
                 visited.add(cv);
+                if (snoozed.contains(card.getId())) {
+                    continue;
+                }
                 if (cardHasActionable(card, player)) {
                     actionable.add(cv);
                     if (earlyExit) return actionable;
@@ -107,7 +130,57 @@ public final class AvailableActions {
         if (sa.getPayCosts() == null || !sa.getPayCosts().hasManaCost()) {
             return true;
         }
-        return ComputerUtilMana.canPayManaCost(sa, player, 0, false);
+        return ComputerUtilMana.canPayManaCost(sa, player, 0, false) || canAffordThroughFilters(sa, player);
+    }
+
+    /**
+     * The AI's payment check never uses a mana ability that itself costs mana (ComputerUtilMana.getAIPlayableMana), so
+     * a filter like Giant's Boulder ({1},{T}: one mana of any color) never fixes a color. Each usable filter turns one
+     * mana into one of a color it can make: retry with that many of the cost's colored shards made generic. Leans
+     * toward "playable", as the rest of this heuristic does.
+     */
+    private static boolean canAffordThroughFilters(SpellAbility sa, Player player) {
+        List<Byte> filters = new java.util.ArrayList<>();
+        for (Card c : player.getCardsIn(ZoneType.Battlefield)) {
+            if (c.equals(sa.getHostCard())) {
+                continue;
+            }
+            for (SpellAbility ma : c.getManaAbilities()) {
+                if (ma.getPayCosts() == null || !ma.getPayCosts().hasManaCost() || ma.getManaPart() == null) {
+                    continue;
+                }
+                ma.setActivatingPlayer(player);
+                if ((ma.getPayCosts().hasTapCost() && c.isTapped()) || !ma.canPlay()) {
+                    continue;
+                }
+                byte colors = 0;
+                for (byte color : MagicColor.WUBRG) {
+                    if (ma.getManaPart().canProduce(MagicColor.toShortString(color), ma)) {
+                        colors |= color;
+                    }
+                }
+                if (colors != 0) {
+                    filters.add(colors);
+                }
+                break; // one activation per permanent: they share the tap
+            }
+        }
+        if (filters.isEmpty()) {
+            return false;
+        }
+        ManaCostBeingPaid cost = ComputerUtilMana.calculateManaCost(sa.getPayCosts(), sa, player, true, 0, false);
+        boolean relaxed = false;
+        for (byte colors : filters) {
+            for (ManaCostShard shard : cost.getUnpaidShards()) {
+                if (shard != ManaCostShard.COLORED_X && (shard.getColorMask() & colors) != 0) {
+                    cost.decreaseShard(shard, 1);
+                    cost.increaseGenericMana(1);
+                    relaxed = true;
+                    break;
+                }
+            }
+        }
+        return relaxed && ComputerUtilMana.canPayManaCost(cost, sa, player, false);
     }
 
     private static boolean checkTimeout(long deadlineNanos, long timeoutMs) {

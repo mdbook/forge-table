@@ -17,7 +17,6 @@ import forge.game.event.GameEventGameFinished;
 import forge.game.player.Player;
 import forge.game.player.PlayerController;
 import forge.game.player.RegisteredPlayer;
-import forge.game.trigger.Trigger;
 import forge.game.zone.PlayerZone;
 import forge.game.zone.ZoneType;
 import forge.item.PaperCard;
@@ -30,6 +29,12 @@ import java.util.*;
 import java.util.Map.Entry;
 
 public class Match {
+    /**
+     * mtg-ai: -Dforge.mtgai.noGc=true skips the explicit System.gc() after every game. On SerialGC that
+     * full collection costs 1.1-1.5 s per game, most of a headless sim game's wall time. Default: gc runs.
+     */
+    private static final boolean MTGAI_NO_GC = Boolean.getBoolean("forge.mtgai.noGc");
+
     private List<PaperCard> removedCards = Lists.newArrayList();
     private final List<RegisteredPlayer> players;
     private final GameRules rules;
@@ -100,7 +105,9 @@ public class Match {
         game.fireEvent(new GameEventGameFinished());
 
         //run GC after game is finished
-        System.gc();
+        if (!MTGAI_NO_GC) {
+            System.gc();
+        }
     }
 
     public GameOutcome getOutcomeById(int id) {
@@ -200,7 +207,14 @@ public class Match {
     private static void preparePlayerZone(Player player, final ZoneType zoneType, CardPool section, boolean canRandomFoil) {
         PlayerZone library = player.getZone(zoneType);
         List<Card> newLibrary = new ArrayList<>();
-        for (final Entry<PaperCard, Integer> stackOfCards : section) {
+        // Iterate the deck section in sorted order: CardPool's backing map
+        // does not guarantee iteration order, so for a fixed seed the
+        // pre-shuffle library order, the random-foil roll sequence, and the
+        // card id assignment order could all vary across JVMs. Sorted
+        // iteration makes zone preparation a pure function of (deck, seed).
+        List<Entry<PaperCard, Integer>> ordered = Lists.newArrayList(section);
+        ordered.sort(Entry.comparingByKey());
+        for (final Entry<PaperCard, Integer> stackOfCards : ordered) {
             final PaperCard cp = stackOfCards.getKey();
             for (int i = 0; i < stackOfCards.getValue(); i++) {
                 final Card card = Card.fromPaperCard(cp, player);
@@ -218,8 +232,7 @@ public class Match {
     }
 
     private void prepareAllZones(final Game game) {
-        // need this code here, otherwise observables fail
-        Trigger.resetIDs();
+        // forge-table: Trigger.resetIDs() dropped (a global reset mid-game breaks N games per JVM)
         game.getTriggerHandler().clearDelayedTrigger();
 
         // friendliness
@@ -227,7 +240,9 @@ public class Match {
         Multimap<Player, PaperCard> removedAnteCards = ArrayListMultimap.create();
         Map<Player, List<PaperCard>> unsupported = new HashMap<>();
 
-        final FCollectionView<Player> players = game.getPlayers();
+        // All players, index for index with playersConditions: getPlayers() drops one who already lost, as a concede
+        // arriving while the zones are dealt does (Forge Table pvp), and the next index then runs off the end.
+        final FCollectionView<Player> players = game.getRegisteredPlayers();
         final List<RegisteredPlayer> playersConditions = game.getMatch().getPlayers();
 
         boolean isFirstGame = gameOutcomes.isEmpty();

@@ -1,0 +1,13 @@
+# Hidden-information fixture: both players control a face-down creature; the AI's hand and
+# both libraries are secret. The AI has no lands, so it can't cast (and so reveal) its hand. RedactionTest asserts the secret names never reach the human's client.
+humanlife=20
+ailife=20
+turn=1
+activeplayer=human
+activephase=MAIN1
+humanhand=Island;Island
+humanlibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+humanbattlefield=Fathom Seer|FaceDown;Island;Island;Island
+aihand=Lightning Bolt;Counterspell
+ailibrary=Accumulated Knowledge;Accumulated Knowledge;Accumulated Knowledge;Accumulated Knowledge;Accumulated Knowledge;Accumulated Knowledge;Accumulated Knowledge;Accumulated Knowledge;Accumulated Knowledge;Accumulated Knowledge
+aibattlefield=Exalted Angel|FaceDown

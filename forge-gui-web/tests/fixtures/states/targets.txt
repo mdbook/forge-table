@@ -1,0 +1,12 @@
+# Targets fixture (forge-gui-web replay goldens, choose targets): my first main phase; I cast Lightning Bolt at the
+# AI's Wind Drake (chooseTargets), it resolves, and the recording ends. Recorded with tests/scripts/record-targets.ts.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Lightning Bolt
+humanlibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Mountain;Mountain
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Grizzly Bears;Wind Drake;Island

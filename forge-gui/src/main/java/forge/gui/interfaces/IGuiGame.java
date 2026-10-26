@@ -1,5 +1,7 @@
 package forge.gui.interfaces;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 import forge.LobbyPlayer;
 import forge.game.GameState;
 import forge.deck.CardPool;
@@ -27,12 +29,14 @@ import forge.localinstance.skin.FSkinProp;
 import forge.player.PlayerZoneUpdate;
 import forge.player.PlayerZoneUpdates;
 import forge.trackable.TrackableCollection;
+import forge.util.CardTranslation;
 import forge.util.FSerializableFunction;
 import forge.util.ITriggerEvent;
 import forge.util.Localizer;
 import forge.util.collect.FCollectionView;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -234,6 +238,28 @@ public interface IGuiGame {
     <T> OrderResult<T> order(String title, String top, int remainingObjectsMin, int remainingObjectsMax, List<T> sourceChoices, List<T> destChoices, CardView referenceCard, boolean sideboardingMode, boolean showRememberCheckbox);
 
     /**
+     * Surveil two or more cards: the cards to keep on top (first = topmost) and the cards for the graveyard. The default
+     * asks in two steps, as Forge always has: pick the graveyard cards, then order the rest.
+     */
+    default Pair<List<CardView>, List<CardView>> surveil(final List<CardView> cards) {
+        final Localizer localizer = Localizer.getInstance();
+        if (cards.size() == 1) {
+            final CardView view = cards.get(0);
+            final boolean top = confirm(view, localizer.getMessage("lblPutCardsOnTheTopLibraryOrGraveyard", CardTranslation.getTranslatedName(view.getName())),
+                    true, List.of(localizer.getMessage("lblLibrary"), localizer.getMessage("lblGraveyard")));
+            return top ? Pair.of(cards, new ArrayList<>()) : Pair.of(new ArrayList<>(), cards);
+        }
+        final List<CardView> toGrave = many(localizer.getMessage("lblSelectCardsToBePutIntoTheGraveyard"),
+                localizer.getMessage("lblCardsToPutInTheGraveyard"), -1, cards, null);
+        List<CardView> toTop = new ArrayList<>(cards);
+        toTop.removeAll(toGrave);
+        if (toTop.size() > 1) {
+            toTop = order(localizer.getMessage("lblArrangeCardsToBePutOnTopOfYourLibrary"), localizer.getMessage("lblTopOfLibrary"), toTop, null);
+        }
+        return Pair.of(toTop, toGrave);
+    }
+
+    /**
      * Ask the user to insert an object into a list of other objects. The
      * current implementation requires the user to cancel in order to get the
      * new item to be the first item in the resulting list.
@@ -274,6 +300,9 @@ public interface IGuiGame {
     boolean isSelecting();
 
     void setWeaklySelectable(final Iterable<CardView> cards);
+
+    /** Spells in the human's hand that cost other than printed right now (reducers, taxes): view → cost, e.g. "{1}{R}". */
+    default void setAdjustedCosts(final Map<CardView, String> costs) { }
     void clearWeaklySelectable();
 
     boolean isGamePaused();

@@ -1,0 +1,121 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <artifactId>forge</artifactId>
+        <groupId>forge</groupId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>forge-gui-bridge</artifactId>
+    <name>Forge Table Bridge</name>
+    <description>
+        Headless sidecar for the Forge Table web client: implements IGuiGame/IGuiBase without Swing and
+        serves the game to a browser or Electron renderer over a JSON WebSocket protocol.
+    </description>
+
+    <properties>
+        <!-- Live/soak games (TestNG group "table-it") only run under -Ptable-it. -->
+        <table.it.excludedGroups>table-it</table.it.excludedGroups>
+        <table.it.groups></table.it.groups>
+        <!-- Stamped into forge-table.jar; the packager checks it matches forge.jar. -->
+        <forge.commit>dev</forge.commit>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>forge</groupId>
+            <artifactId>forge-gui</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>forge</groupId>
+            <artifactId>forge-gui-web</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <!-- Native sign-in (auth mode "users"): local accounts and sessions in <data>/forge-table.db. -->
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.53.4.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>7.10.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <!-- target/classpath.txt lets the web tests and the RUNBOOK launch the sidecar from the repo. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>write-classpath</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>build-classpath</goal>
+                        </goals>
+                        <configuration>
+                            <outputFile>${project.build.directory}/classpath.txt</outputFile>
+                            <includeScope>runtime</includeScope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>
+                        -Xmx1536m -Xss8m -Djava.awt.headless=true
+                        --add-opens java.base/java.lang=ALL-UNNAMED
+                        --add-opens java.base/java.time=ALL-UNNAMED
+                        --add-opens java.base/java.text=ALL-UNNAMED
+                        --add-opens java.base/java.util=ALL-UNNAMED
+                        --add-opens java.base/java.util.regex=ALL-UNNAMED
+                        --add-opens java.base/java.util.stream=ALL-UNNAMED
+                        --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                        --add-opens java.desktop/javax.imageio.spi=ALL-UNNAMED
+                    </argLine>
+                    <excludedGroups>${table.it.excludedGroups}</excludedGroups>
+                    <groups>${table.it.groups}</groups>
+                    <systemPropertyVariables>
+                        <!-- Keep USER_DIR/CACHE_DIR (derived from user.home) out of the developer's real profile. -->
+                        <user.home>${project.build.directory}/test-home</user.home>
+                        <forge.bridge.assets>${project.basedir}/../forge-gui/</forge.bridge.assets>
+                        <forge.bridge.web>${project.basedir}/../forge-gui-web/</forge.bridge.web>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>forge.bridge.Main</mainClass>
+                        </manifest>
+                        <manifestEntries>
+                            <Forge-Commit>${forge.commit}</Forge-Commit>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>table-it</id>
+            <properties>
+                <table.it.excludedGroups></table.it.excludedGroups>
+                <table.it.groups></table.it.groups>
+            </properties>
+        </profile>
+    </profiles>
+</project>

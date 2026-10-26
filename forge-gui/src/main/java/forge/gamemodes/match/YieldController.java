@@ -52,6 +52,7 @@ public class YieldController {
             FPref.YIELD_INTERRUPT_ON_MASS_REMOVAL,
             FPref.YIELD_AUTO_PASS_NO_ACTIONS,
             FPref.YIELD_AUTO_PASS_RESPECTS_INTERRUPTS,
+            FPref.YIELD_AUTO_RESOLVE_OWN,
             FPref.YIELD_SKIP_PHASE_DELAY,
             FPref.YIELD_SKIP_RESOLVE_DELAY,
             FPref.YIELD_SUPPRESS_ON_OWN_TURN,
@@ -238,8 +239,17 @@ public class YieldController {
         return owner == null || !owner.isRemoteClient();
     }
 
+    // forge-table: a Forge Table process seats several players, and the Install store is one file for all of them
+    // (shared with desktop Forge on the same profile). The bridge turns it off; Install then acts as Each Match.
+    private static volatile boolean installModeAllowed = true;
+
+    public static void disallowInstallMode() {
+        installModeAllowed = false;
+    }
+
     private static boolean activeModeIsInstall() {
-        return ForgeConstants.AUTO_DECISION_PER_ABILITY_INSTALL.equals(FModel.getPreferences().getPref(FPref.UI_AUTO_DECISION_MODE));
+        return installModeAllowed
+                && ForgeConstants.AUTO_DECISION_PER_ABILITY_INSTALL.equals(FModel.getPreferences().getPref(FPref.UI_AUTO_DECISION_MODE));
     }
 
     private static AutoYieldStore.Tier activeTier() {
@@ -472,7 +482,8 @@ public class YieldController {
         if (local == null) return;
         boolean isOpponent = !si.getActivatingPlayer().getView().equals(local);
 
-        if (isOpponent && getBoolPref(FPref.YIELD_INTERRUPT_ON_OPPONENT_SPELL)) {
+        // A triggered ability isn't a spell: whether triggers interrupt is YIELD_INTERRUPT_ON_TRIGGERS' call, below.
+        if (isOpponent && !si.isTrigger() && getBoolPref(FPref.YIELD_INTERRUPT_ON_OPPONENT_SPELL)) {
             applyInterrupt();
             return;
         }

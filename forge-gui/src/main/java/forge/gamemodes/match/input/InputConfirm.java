@@ -126,6 +126,11 @@ public class InputConfirm extends InputSyncronizedBase {
         return true;
     }
 
+    /** The ability this confirm is about, if any: a {@code WrappedAbility} when it asks whether to use an optional trigger. */
+    public final SpellAbility getSpellAbility() {
+        return sa;
+    }
+
     /** {@inheritDoc} */
     @Override
     protected final void onOk() {

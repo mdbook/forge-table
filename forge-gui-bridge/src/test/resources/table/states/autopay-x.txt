@@ -1,0 +1,11 @@
+# Auto-pay hint (AutoPayHintTest): Endless One with X=2 and exactly two Mountains: X spells always prompt.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Endless One
+humanlibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+humanbattlefield=Mountain;Mountain
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Forest

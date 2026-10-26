@@ -1,0 +1,10 @@
+# Checks for a new Forge Table build every 5 minutes: systemctl enable --now forge-table-deploy@stable.timer
+[Unit]
+Description=Forge Table deploy check (%i)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,11 @@
+# Auto-pay hint (AutoPayHintTest): Two Mountains and a Forest for Goblin Piker's {1}{R}: the generic can come from a Mountain or the Forest, a real choice.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Goblin Piker
+humanlibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+humanbattlefield=Mountain;Mountain;Forest
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Forest

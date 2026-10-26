@@ -1,0 +1,12 @@
+# Always-answer fixture (AutoResponsesTest): my first main phase, two Lightning Bolts and two Mountains. My Kor
+# Firewalker's "you may gain 1 life" triggers on each bolt, so the second one shows whether the answer stuck.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Lightning Bolt;Lightning Bolt
+humanlibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Mountain;Mountain;Kor Firewalker
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Grizzly Bears

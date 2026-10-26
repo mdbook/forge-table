@@ -1,0 +1,12 @@
+# Auto-pass fixture (AutoPassTest): my first main phase. My own Overcooked triggers at my end step (a Food token).
+# Mogg Fanatic gives me something to do, so a stop at that trigger would show. No cards in hand, so cleanup asks for
+# no discard (fixture games start with a maximum hand size of 0).
+humanlife=20
+ailife=20
+turn=2
+activeplayer=human
+activephase=MAIN1
+humanlibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Mountain;Mountain;Mogg Fanatic;Overcooked
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Island;Island

@@ -7,7 +7,6 @@ import forge.game.card.Card;
 import forge.game.event.GameEventGameFinished;
 import forge.game.player.Player;
 import forge.game.player.RegisteredPlayer;
-import forge.game.trigger.Trigger;
 import forge.game.trigger.TriggerHandler;
 import forge.game.trigger.TriggerType;
 import forge.game.zone.ZoneType;
@@ -78,7 +77,6 @@ public class GameWrapper {
 
 		// GameNew.newGame( game, false, false ) does a bit of internal setup, then
 		// prepares libraries etc
-		Trigger.resetIDs();
 		TriggerHandler trigHandler = game.getTriggerHandler();
 		trigHandler.clearDelayedTrigger();
 

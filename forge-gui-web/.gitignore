@@ -1,0 +1,10 @@
+node_modules/
+app/dist/
+target/
+# Playwright output (goldens under tests/e2e/*-snapshots and fixtures under tests/fixtures are committed)
+tests/test-results/
+tests/playwright-report/
+tests/output/
+test-results/
+playwright-report/
+*.log

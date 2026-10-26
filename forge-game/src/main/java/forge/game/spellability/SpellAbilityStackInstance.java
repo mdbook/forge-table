@@ -38,8 +38,8 @@ import forge.util.TextUtil;
  * @version $Id$
  */
 public class SpellAbilityStackInstance implements IIdentifiable, IHasCardView {
-    private static int maxId = 0;
-    public static int nextId() { return ++maxId; }
+    private static final java.util.concurrent.atomic.AtomicInteger MAX_ID = new java.util.concurrent.atomic.AtomicInteger(); // forge-table: atomic, N games per JVM
+    public static int nextId() { return MAX_ID.incrementAndGet(); }
 
     // At some point I want this functioning more like Target/Target Choices
     // where the SA has an "active"

@@ -10,6 +10,7 @@ public interface IGameEventVisitor<T> {
     T visit(GameEventCardChangeZone event);
     T visit(GameEventCardModeChosen event);
     T visit(GameEventCardRegenerated event);
+    T visit(GameEventCardRevealed event);
     T visit(GameEventCardSacrificed event);
     T visit(GameEventCardPhased event);
     T visit(GameEventCardTapped event);
@@ -71,6 +72,7 @@ public interface IGameEventVisitor<T> {
         public T visit(GameEventCardChangeZone event) { return null; }
         public T visit(GameEventCardModeChosen event) { return null; }
         public T visit(GameEventCardRegenerated event) { return null; }
+        public T visit(GameEventCardRevealed event) { return null; }
         public T visit(GameEventCardSacrificed event) { return null; }
         public T visit(GameEventCardTapped event) { return null; }
         public T visit(GameEventCardStatsChanged event) { return null; }

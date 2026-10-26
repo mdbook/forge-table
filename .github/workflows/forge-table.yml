@@ -1,0 +1,135 @@
+# Forge Table CI on GitHub runners: the same checks as docs/forge-table/RUNBOOK.md, run them locally the same way.
+#
+#   web      typecheck + Vitest (fast, no JVM).
+#   bridge   the engine modules + forge-gui-bridge, then the bridge's unit / contract tests and one live game.
+#   e2e      Playwright in the 1.56.1 image (its Chromium is the one the goldens were made with): the replay goldens,
+#            then one live game in the browser against the sidecar built in the same job.
+#   release  on a v* tag, once the three pass: builds the Lyra plugin (LYRA_TAG) against this engine, fetches its
+#            model (checked against a pinned sha256) and makes the plugin overlay; then
+#            forge-gui-bridge/package.sh builds the release zip with it, starts it once (--smoke) and attaches zip +
+#            .sha256 to the tag's GitHub release as a pre-release while the version says alpha or beta.
+name: Forge Table
+
+on:
+  push:
+    branches: [forge-table]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: forge-table-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MAVEN_CLI: -B -ntp -Dcheckstyle.skip -Dmaven.javadoc.skip=true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: forge-gui-web/package-lock.json
+      - working-directory: forge-gui-web
+        run: |
+          npm ci
+          npm run typecheck
+          npm run test:unit
+
+  bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      # The engine modules without their own tests (the legacy suite is test-build.yaml), then the bridge.
+      - run: mvn $MAVEN_CLI -Dskip.web -DskipTests install -pl forge-gui-bridge -am
+      - run: mvn $MAVEN_CLI -Dskip.web install -pl forge-gui-bridge
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: forge-gui-bridge/target/surefire-reports/
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v4
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends openjdk-21-jdk-headless maven >/dev/null
+      # The sidecar for the live game (tests/support/sidecar.ts finds classpath.txt and skips its own build).
+      - run: mvn $MAVEN_CLI -Dskip.web -DskipTests install -pl forge-gui-bridge -am
+      - working-directory: forge-gui-web
+        run: |
+          npm ci
+          npm run build
+      - working-directory: forge-gui-web/tests
+        run: npx playwright test
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright
+          path: |
+            forge-gui-web/tests/test-results/
+            forge-gui-web/tests/playwright-report/
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [web, bridge, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      # The engine into ~/.m2 first: the plugin builds against it.
+      - run: mvn $MAVEN_CLI -Dskip.web -DskipTests install -pl forge-ai -am
+      # Lyra's plugin repo and its model release must be public on GitHub before the first tag here. LYRA_COMMIT pins
+      # the tag's commit (a tag can move); the release stops until it is set. Outside the checkout: package.sh refuses
+      # a dirty tree.
+      - name: Lyra source
+        env:
+          LYRA_REPO: mdbook/lyra-forge-plugin
+          LYRA_TAG: v0.1.0-alpha.1
+          LYRA_COMMIT: ""
+        run: |
+          [ -n "$LYRA_COMMIT" ] || { echo "LYRA_COMMIT is not pinned" >&2; exit 1; }
+          git clone --depth 1 --branch "$LYRA_TAG" "https://github.com/$LYRA_REPO" "$RUNNER_TEMP/lyra"
+          [ "$(git -C "$RUNNER_TEMP/lyra" rev-parse HEAD)" = "$LYRA_COMMIT" ] || { echo "$LYRA_TAG is not $LYRA_COMMIT" >&2; exit 1; }
+      - name: Lyra model
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download v0.1.0-alpha.1 -R mdbook/lyra-forge-plugin -p lyra-model-v58625.zip -D "$RUNNER_TEMP/lyra"
+      - name: Lyra overlay
+        working-directory: ${{ runner.temp }}/lyra
+        run: |
+          echo "ff0f3d452a4a237f19cbb8fc58ad238300ed83553531c65caaadcf7a07a623dd  lyra-model-v58625.zip" | sha256sum -c -
+          mvn $MAVEN_CLI package
+          scripts/overlay.sh --model lyra-model-v58625.zip --out "$RUNNER_TEMP/lyra-overlay.zip"
+      - run: forge-gui-bridge/package.sh --smoke --out "$RUNNER_TEMP/dist" --overlay "$RUNNER_TEMP/lyra-overlay.zip"
+        env:
+          MVN_FLAGS: -ntp -Dmaven.javadoc.skip=true
+      - run: |
+          pre=; case "$GITHUB_REF_NAME" in *[aA]lpha*|*[bB]eta*|*[rR][cC]*) pre=--prerelease ;; esac
+          gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes $pre "$RUNNER_TEMP"/dist/*.zip "$RUNNER_TEMP"/dist/*.sha256
+        env:
+          GH_TOKEN: ${{ github.token }}

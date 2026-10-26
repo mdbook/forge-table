@@ -1,0 +1,11 @@
+# Auto-pay hint (AutoPayHintTest): A Mountain and a Lotus Petal for Raging Goblin's {R}: tap the land or sacrifice the Petal, a real choice.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Raging Goblin
+humanlibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+humanbattlefield=Mountain;Lotus Petal
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Forest

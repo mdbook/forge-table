@@ -76,6 +76,12 @@ public enum DeckFormat {
     Brawl      ( Range.is(59), Range.of(0, 15), 1, null,
             card -> StaticData.instance().getBrawlPredicate().test(card)
     ),
+    /**
+     * MTG Arena's Competitive Brawl: 99 + a commander, singleton. The card pool (Arena's cards less its own banlist) is
+     * a {@code GameFormat} checked beside this, as the desktop lobby checks Standard beside Constructed. Bo1, so the
+     * sideboard is only a companion's slot.
+     */
+    CompetitiveBrawl ( Range.is(99), Range.of(0, 1), 1),
     TinyLeaders    ( Range.is(49),                         Range.of(0, 10), 1, new Predicate<>() {
         private final Set<String> bannedCards = ImmutableSet.of(
                 "Ancestral Recall", "Balance", "Black Lotus", "Black Vise", "Channel", "Chaos Orb", "Contract From Below", "Counterbalance", "Darkpact", "Demonic Attorney", "Demonic Tutor", "Earthcraft", "Edric, Spymaster of Trest", "Falling Star",
@@ -158,7 +164,7 @@ public enum DeckFormat {
     }
 
     public boolean hasCommander() {
-        return this == Commander || this == Oathbreaker || this == TinyLeaders || this == Brawl;
+        return this == Commander || this == Oathbreaker || this == TinyLeaders || this == Brawl || this == CompetitiveBrawl;
     }
 
     public boolean hasSignatureSpell() {
@@ -620,6 +626,11 @@ public enum DeckFormat {
         }
         if (this == DeckFormat.Brawl) {
             return rules.canBeBrawlCommander();
+        }
+        if (this == DeckFormat.CompetitiveBrawl) {
+            // Arena also lets a legendary Vehicle or Spacecraft lead (Competitive Brawl, 2026-06-08).
+            final CardType type = rules.getType();
+            return rules.canBeBrawlCommander() || type.isLegendary() && (type.isVehicle() || type.isSpacecraft());
         }
         if (this == DeckFormat.TinyLeaders) {
             return rules.canBeTinyLeadersCommander();

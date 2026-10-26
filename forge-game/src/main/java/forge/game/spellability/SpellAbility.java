@@ -75,8 +75,8 @@ import forge.game.zone.ZoneType;
  * @version $Id$
  */
 public abstract class SpellAbility extends CardTraitBase implements ISpellAbility, IIdentifiable, Comparable<SpellAbility> {
-    private static int maxId = 0;
-    private static int nextId() { return ++maxId; }
+    private static final java.util.concurrent.atomic.AtomicInteger MAX_ID = new java.util.concurrent.atomic.AtomicInteger(); // forge-table: atomic, N games per JVM
+    private static int nextId() { return MAX_ID.incrementAndGet(); }
 
     public static class EmptySa extends SpellAbility {
         public EmptySa(Card sourceCard) { super(sourceCard, Cost.Zero); setActivatingPlayer(sourceCard.getController());}

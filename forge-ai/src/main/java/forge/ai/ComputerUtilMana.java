@@ -147,6 +147,34 @@ public class ComputerUtilMana {
         // lower value means better choice
         orderedCards.sort(Comparator.comparingInt(manaCardMap::get));
 
+        // forge-table: how much held instants / flash cards need each source (per-controller, default off)
+        final Map<Card, Double> instantNeed = Maps.newHashMap();
+        final Player activator = sa.getActivatingPlayer();
+        if (activator != null && activator.getController() instanceof PlayerControllerAi pca
+                && pca.preferSourcesKeepingInstantsCastable()) {
+            for (Card inHand : activator.getCardsIn(ZoneType.Hand)) {
+                if (inHand == sa.getHostCard() || inHand.isLand() || !(inHand.isInstant() || inHand.hasKeyword(Keyword.FLASH))) {
+                    continue;
+                }
+                for (ManaCostShard pip : inHand.getManaCost()) {
+                    if (pip.isGeneric() || pip.isPhyrexian()) {
+                        continue;
+                    }
+                    final Set<Card> payers = new HashSet<>();
+                    for (byte color : MagicColor.WUBRG) {
+                        if ((pip.getColorMask() & color) != 0) {
+                            for (SpellAbility ma : manaAbilityMap.get((int) color)) {
+                                payers.add(ma.getHostCard());
+                            }
+                        }
+                    }
+                    for (Card payer : payers) {
+                        instantNeed.merge(payer, 1.0 / payers.size(), Double::sum);
+                    }
+                }
+            }
+        }
+
         if (DEBUG_MANA_PAYMENT) {
             System.out.print("Ordered Cards: " + orderedCards.size());
             for (Card card : orderedCards) {
@@ -183,6 +211,13 @@ public class ComputerUtilMana {
                 int preOrder = orderedCards.indexOf(ability1.getHostCard()) - orderedCards.indexOf(ability2.getHostCard());
 
                 if (preOrder != 0) {
+                    if (!instantNeed.isEmpty() && manaCardMap.get(ability1.getHostCard()).equals(manaCardMap.get(ability2.getHostCard()))) {
+                        final int byNeed = Double.compare(instantNeed.getOrDefault(ability1.getHostCard(), 0.0),
+                                instantNeed.getOrDefault(ability2.getHostCard(), 0.0));
+                        if (byNeed != 0) {
+                            return byNeed;
+                        }
+                    }
                     // on identical score (most likely basics) try keep access to more colors longer
                     if (shard.isGeneric() && manaCardMap.get(ability1.getHostCard()).equals(manaCardMap.get(ability2.getHostCard()))) {
                         for (Integer col : colorsMostCommon) {
@@ -696,7 +731,8 @@ public class ComputerUtilMana {
 
             SpellAbility saPayment = saList.isEmpty() ? null : chooseManaAbility(cost, sa, ai, toPay, saList, checkPlayable || !test);
 
-            if (saPayment != null && ComputerUtilCost.isSacrificeSelfCost(saPayment.getPayCosts()) && sa.isTargeting(saPayment.getHostCard())) {
+            if (saPayment != null && ComputerUtilCost.isSacrificeSelfCost(saPayment.getPayCosts()) && sa.isTargeting(saPayment.getHostCard())
+                    && !(ai.getController() instanceof PlayerControllerAi pca && pca.mayPayBySacrificingTarget())) {
                 // not a good idea to sac a card that you're targeting with the SA you're paying for
                 saExcludeList.add(saPayment);
                 continue;

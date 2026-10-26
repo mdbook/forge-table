@@ -14,10 +14,37 @@ import forge.util.Localizer;
 import forge.util.MyRandom;
 import org.apache.commons.lang3.StringUtils;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Set;
 
 public final class GamePlayerUtil {
     private GamePlayerUtil() { }
+
+    /**
+     * mtg-ai human seat: the AI profile (res/ai/Neural.ai) that seats the mtg-ai neural policy instead of the Forge AI.
+     * Picked like any other profile (Preferences > AI profile, or the lobby's AI picker); never a random pick.
+     */
+    public static final String NEURAL_PROFILE = "Neural";
+    /**
+     * The LobbyPlayer class behind {@link #NEURAL_PROFILE}: a LobbyPlayerAi subclass with a (String, Set&lt;AIOption&gt;)
+     * constructor. Loaded by name because mtg-ai's jar (which links forge-ai) is on the classpath only in the
+     * human-seat package; the fork itself does not depend on it.
+     */
+    private static final String NEURAL_CLASS = System.getProperty("forge.mtgai.neuralPlayer", "mtgai.humanseat.LobbyPlayerNeural");
+
+    /** The neural LobbyPlayer, or null (after telling the user) when its class or model cannot be loaded. */
+    private static LobbyPlayer createNeuralPlayer(final String name, final Set<AIOption> options) {
+        try {
+            return (LobbyPlayer) Class.forName(NEURAL_CLASS).getConstructor(String.class, Set.class).newInstance(name, options);
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException e) {
+            final Throwable cause = e instanceof InvocationTargetException && e.getCause() != null ? e.getCause() : e;
+            System.err.println("[mtg-ai] Neural opponent unavailable, using the Default Forge AI: " + cause);
+            cause.printStackTrace();
+            SOptionPane.showErrorDialog("The Neural opponent could not start, so this game uses the Default Forge AI.\n\n"
+                    + cause, "Neural opponent unavailable");
+            return null;
+        }
+    }
     private static Localizer localizer = Localizer.getInstance();
     private static final LobbyPlayer guiPlayer = new LobbyPlayerHuman("Human");
     public static LobbyPlayer getGuiPlayer() {
@@ -85,6 +112,9 @@ public final class GamePlayerUtil {
             player.setRotateProfileEachGame(lastProfileChosen.equals(AiProfileUtil.AI_PROFILE_RANDOM_DUEL));
             if (lastProfileChosen.equals(AiProfileUtil.AI_PROFILE_RANDOM_MATCH)) {
                 lastProfileChosen = AiProfileUtil.getRandomProfile();
+                if (NEURAL_PROFILE.equals(lastProfileChosen)) {
+                    lastProfileChosen = "Default"; // mtg-ai: the neural seat is an explicit choice only
+                }
             }
             profile = lastProfileChosen;
         } else {
@@ -92,6 +122,16 @@ public final class GamePlayerUtil {
         }
 
         assert (!profile.isEmpty()); // TODO test instead of assert
+
+        if (NEURAL_PROFILE.equals(profile)) {
+            final LobbyPlayer neural = createNeuralPlayer(name, options);
+            if (neural != null) {
+                neural.setAvatarIndex(avatarIndex);
+                neural.setSleeveIndex(sleeveIndex);
+                return neural;
+            }
+            profile = "Default";
+        }
 
         player.setAiProfile(profile);
         player.setAvatarIndex(avatarIndex);

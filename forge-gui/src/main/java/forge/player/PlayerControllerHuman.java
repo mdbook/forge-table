@@ -5,6 +5,7 @@ import forge.LobbyPlayer;
 import forge.StaticData;
 import forge.ai.AIOption;
 import forge.ai.AvailableActions;
+import forge.ai.ComputerUtilMana;
 import forge.game.GameState;
 import forge.ai.PlayerControllerAi;
 import forge.gamemodes.net.server.RemoteClientGuiGame;
@@ -1055,37 +1056,14 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         CardCollection toTop = null;
 
         tempShowCards(topN);
-        if (topN.size() == 1) {
-            final Card c = topN.getFirst();
-            final CardView view = CardView.get(c);
-
-            tempShowCard(c);
-            getGui().setCard(view);
-            boolean result = InputConfirm.confirm(this, view, localizer.getMessage("lblPutCardsOnTheTopLibraryOrGraveyard", CardTranslation.getTranslatedName(view.getName())),
-                    true, List.of(localizer.getMessage("lblLibrary"), localizer.getMessage("lblGraveyard")));
-            if (result) {
-                toTop = topN;
-            } else {
-                toGrave = topN;
-            }
-        } else {
-            GameEntityViewMap<Card, CardView> gameCacheSurveil = GameEntityView.getMap(topN);
-            toGrave = new CardCollection();
-            List<CardView> views = getGui().many(localizer.getMessage("lblSelectCardsToBePutIntoTheGraveyard"),
-                    localizer.getMessage("lblCardsToPutInTheGraveyard"), -1, gameCacheSurveil.getTrackableKeys(), null);
-            gameCacheSurveil.addToList(views, toGrave);
-            topN.removeAll(toGrave);
-            if (topN.isEmpty()) {
-                toTop = null;
-            } else if (topN.size() == 1) {
-                toTop = topN;
-            } else {
-                GameEntityViewMap<Card, CardView> cardCacheOrder = GameEntityView.getMap(topN);
-                toTop = new CardCollection();
-                views = getGui().order(localizer.getMessage("lblArrangeCardsToBePutOnTopOfYourLibrary"),
-                        localizer.getMessage("lblTopOfLibrary"), cardCacheOrder.getTrackableKeys(), null);
-                cardCacheOrder.addToList(views, toTop);
-            }
+        GameEntityViewMap<Card, CardView> gameCacheSurveil = GameEntityView.getMap(topN);
+        Pair<List<CardView>, List<CardView>> views = getGui().surveil(gameCacheSurveil.getTrackableKeys());
+        toGrave = new CardCollection();
+        gameCacheSurveil.addToList(views.getRight(), toGrave);
+        toTop = new CardCollection();
+        gameCacheSurveil.addToList(views.getLeft(), toTop);
+        if (toTop.isEmpty()) {
+            toTop = null;
         }
         endTempShowCards();
         return ImmutablePair.of(toTop, toGrave);
@@ -1500,6 +1478,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         // TODO we should be passing tuckCards into Confirmation Dialog
         final InputConfirmMulligan inp = new InputConfirmMulligan(this, player, mulliganingPlayer);
         inp.showAndWait();
+        HumanDecisionObserver.notifyMulligan(player, inp.isKeepHand(), cardsToReturn);
         return inp.isKeepHand();
     }
 
@@ -1507,6 +1486,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     public CardCollectionView tuckCardsViaMulligan(CardCollectionView hand, int cardsToReturn) {
         final InputLondonMulligan inp = new InputLondonMulligan(this, player, cardsToReturn);
         inp.showAndWait();
+        HumanDecisionObserver.notifyBottom(player, hand, inp.getSelectedCards());
         return inp.getSelectedCards();
     }
 
@@ -1526,6 +1506,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         // This input should not modify combat object itself, but should return user choice
         final InputAttack inpAttack = new InputAttack(this, attackingPlayer, combat);
         inpAttack.showAndWait();
+        HumanDecisionObserver.notifyAttackers(attackingPlayer, combat);
     }
 
     @Override
@@ -1533,6 +1514,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         // This input should not modify combat object itself, but should return user choice
         final InputBlock inpBlock = new InputBlock(this, defender, combat);
         inpBlock.showAndWait();
+        HumanDecisionObserver.notifyBlockers(defender, combat);
         getGui().updateAutoPassPrompt();
     }
 
@@ -1594,6 +1576,45 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             }
         }
         getGui().setWeaklySelectable(weighted);
+    }
+
+    /** Re-scan what's playable and push it, if the priority prompt is up. The scan is otherwise made once, as priority
+     *  starts, so a change to what counts (Forge Table's snoozed cards, {@link AvailableActions#setSnoozed}) shows up
+     *  now rather than at the next priority. Any other prompt keeps its own highlights. */
+    public void refreshActionableCards() {
+        // Mine only: a controlled player's (Mindslaver) controller shares this input queue.
+        if (!(inputQueue.getInput() instanceof InputPassPriority ipp) || ipp.getController() != this
+                || !yieldController.getBoolPref(FPref.UI_SHOW_ACTIONABLE_HIGHLIGHTS)) {
+            return;
+        }
+        cachedActionableCards = AvailableActions.collectActionable(getPlayer(), computeAvailableActionsBudgetMs(getPlayer()));
+        getPlayer().getView().setHasAvailableActions(!cachedActionableCards.isEmpty());
+        pushActionableCards(false);
+    }
+
+    /** Spells in my hand whose mana cost right now differs from the printed one (cost reducers, taxes). */
+    private Map<CardView, String> adjustedHandCosts() {
+        final Map<CardView, String> out = new HashMap<>();
+        for (final Card c : player.getCardsIn(ZoneType.Hand).threadSafeIterable()) {
+            try {
+                final SpellAbility sa = c.getFirstSpellAbility();
+                if (sa == null || sa.getPayCosts() == null) {
+                    continue;
+                }
+                final ManaCost printed = sa.getPayCosts().getTotalMana();
+                if (printed == null || printed.countX() > 0) {
+                    continue; // X spells: no fixed cost to show
+                }
+                sa.setActivatingPlayer(player);
+                final ManaCost now = ComputerUtilMana.calculateManaCost(sa.getPayCosts(), sa, player, true, 0, false).toManaCost();
+                if (!now.toString().equals(printed.toString())) {
+                    out.put(c.getView(), now.toString());
+                }
+            } catch (final RuntimeException e) {
+                // a cost that can't be predicted: the printed one stands
+            }
+        }
+        return out;
     }
 
     private boolean cardHasPlayableManaAbility(Card c) {
@@ -1716,11 +1737,14 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             return null;
         }
 
+        getGui().setAdjustedCosts(adjustedHandCosts());
         netLog.trace("Creating InputPassPriority for player {}", player.getName());
         final InputPassPriority defaultInput = new InputPassPriority(this);
         defaultInput.showAndWait();
         netLog.trace("InputPassPriority returned for player {}, chosenSa={}", player.getName(), defaultInput.getChosenSa());
-        return defaultInput.getChosenSa();
+        final List<SpellAbility> chosen = defaultInput.getChosenSa();
+        HumanDecisionObserver.notifyPriority(player, chosen);
+        return chosen;
     }
 
     @Override
@@ -3652,6 +3676,17 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         return macros != null && (macros.isRecording() || macros.isReplaying());
     }
 
+    // forge-table: an opponent's loop shortcut this player accepted (rule 732.2) passes their priority while it runs;
+    // choices other than priority still ask. Null clears it.
+    private volatile java.util.function.BooleanSupplier passPriorityWhile;
+
+    public void setPassPriorityWhile(final java.util.function.BooleanSupplier passWhile) {
+        passPriorityWhile = passWhile;
+        if (passWhile != null) {
+            tryAutoPassNow();
+        }
+    }
+
     @Override
     public void concede() {
         if (player != null) {
@@ -3809,17 +3844,31 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
                 || yieldController.isAutoPassingNoActions(getLocalPlayerView()));
     }
 
-    /** An auto-yielded ability on top of the stack, or a phase set to be skipped with the stack empty.
+    /** An auto-yielded ability on top of the stack, my own spell or ability on top with YIELD_AUTO_RESOLVE_OWN on,
+     *  a phase set to be skipped with the stack empty, or an opponent's accepted loop running.
      *  Reads the view, not the engine, because this also runs on network threads. */
     private boolean skipsPromptForStackOrPhase() {
         if (macros != null && macros.isReplaying()) return false;
+        final java.util.function.BooleanSupplier passWhile = passPriorityWhile;
+        if (passWhile != null && passWhile.getAsBoolean()) return true;
         final GameView gameView = getGui().getGameView();
         if (gameView == null) return false;
         final StackItemView top = gameView.peekStack();
-        if (top != null) return !isMacroActive() && top.isAbility() && shouldAutoYield(top.getKey());
+        if (top != null) {
+            if (isMacroActive()) return false;
+            if (top.isAbility() && shouldAutoYield(top.getKey())) return true;
+            return yieldController.getBoolPref(FPref.YIELD_AUTO_RESOLVE_OWN) && isMine(top);
+        }
         final PlayerView turnPlayer = gameView.getPlayerTurn();
         final PhaseType phase = gameView.getPhase();
         return turnPlayer != null && phase != null && isUiSetToSkipPhase(turnPlayer, phase);
+    }
+
+    /** I put this on the stack: my spell, or an ability or trigger I control. */
+    private boolean isMine(final StackItemView item) {
+        final PlayerView me = getLocalPlayerView();
+        final PlayerView activator = item.getActivatingPlayer();
+        return me != null && activator != null && activator.getId() == me.getId();
     }
 
     public void autoPassUntilEndOfTurn() {

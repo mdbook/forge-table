@@ -99,6 +99,13 @@ public class InputQueue extends Observable implements IHasForgeLog {
         inputStack.push(input);
         syncPoint();
         updateObservers();
+        // The game ended while the game thread was on its way to this Input (e.g. a concede from the UI thread
+        // between two Inputs of one spell): onGameOver released only the Inputs already stacked, and nothing will
+        // ever click this one, so let it go at once. Checked after the push: either onGameOver sees it on the
+        // stack, or the game-over flag it sets first is visible here (both go through the stack's lock).
+        if (gameView.isGameOver()) {
+            input.relaseLatchWhenGameIsOver();
+        }
     }
 
     void syncPoint() {

@@ -1,0 +1,12 @@
+# Auto-pass fixture (AutoPassTest): the AI's main phase. My Lightning Bolt needs {R} and I only have a Plains, but
+# Giant's Boulder filters it ({1},{T}: one mana of any colour), so the Bolt is castable and auto-skip must stop.
+humanlife=20
+ailife=20
+turn=2
+activeplayer=ai
+activephase=MAIN1
+humanhand=Lightning Bolt
+humanlibrary=Plains;Plains;Plains;Plains;Plains;Plains;Plains;Plains;Plains;Plains
+humanbattlefield=Plains;Giant's Boulder
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Island;Island

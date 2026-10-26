@@ -42,8 +42,9 @@ public class StaticEffects {
     private final Map<StaticAbility, StaticEffect> staticEffects = Maps.newHashMap();
 
     public final void clearStaticEffects(final Set<Card> affectedCards, Map<StaticAbilityLayer, Set<Card>> affectedPerLayer) {
-        // remove all static effects
-        for (final StaticEffect se : staticEffects.values()) {
+        // remove all static effects; over a copy, since removing one can re-enter and change the map (a
+        // ConcurrentModificationException mid-payment froze a Forge Table game: a sacrifice cost paid by a mana ability)
+        for (final StaticEffect se : new java.util.ArrayList<>(staticEffects.values())) {
             se.remove(affectedPerLayer).forEach(affectedCards::add);
         }
         this.staticEffects.clear();

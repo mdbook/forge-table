@@ -69,6 +69,8 @@
         <module>forge-gui-mobile</module>
         <module>forge-gui-mobile-dev</module>
         <module>forge-gui-desktop</module>
+        <module>forge-gui-web</module>
+        <module>forge-gui-bridge</module>
         <module>forge-lda</module>
         <module>adventure-editor</module>
         <module>forge-gui-android</module>
@@ -341,7 +343,10 @@
                 <executions>
                     <execution>
                         <id>flatten</id>
-                        <phase>deploy</phase>
+                        <!-- forge-table: process-resources, not deploy, so `mvn install` writes the
+                             resolved version into the installed POMs and projects outside this
+                             reactor (mtg-ai/mtgai-java) can depend on forge-ai -->
+                        <phase>process-resources</phase>
                         <goals>
                             <goal>flatten</goal>
                         </goals>

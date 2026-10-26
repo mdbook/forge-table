@@ -1,0 +1,14 @@
+# Delve-REQUIRED fixture (DelveHandPromptTest): Treasure Cruise in hand, only 1
+# Island in play (pays the {U}), and exactly 7 cards in the graveyard to delve for the remaining
+# {7} generic. Delving is the only way to pay, unlike delve-hand.txt where it's optional.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Treasure Cruise
+humanlibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+humanbattlefield=Island
+humangraveyard=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Forest

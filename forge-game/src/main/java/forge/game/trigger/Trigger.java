@@ -52,17 +52,9 @@ import java.util.*;
  * @version $Id$
  */
 public abstract class Trigger extends TriggerReplacementBase {
-    private static int maxId = 0;
-    private static int nextId() { return ++maxId; }
-
-    /**
-     * <p>
-     * resetIDs.
-     * </p>
-     */
-    public static void resetIDs() {
-        Trigger.maxId = 50000;
-    }
+    // forge-table: atomic, N games per JVM; starts where the dropped per-game resetIDs() put it
+    private static final java.util.concurrent.atomic.AtomicInteger MAX_ID = new java.util.concurrent.atomic.AtomicInteger(50000);
+    private static int nextId() { return MAX_ID.incrementAndGet(); }
 
     /** The ID. */
     private int id;

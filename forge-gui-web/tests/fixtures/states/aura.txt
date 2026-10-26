@@ -1,0 +1,13 @@
+# Aura fixture (forge-gui-web replay, a Wild Growth bug): my first main phase; I cast Wild Growth
+# (Enchant land) and pick my Forest at chooseTargets; lands and an Arbor Elf on both sides. Recorded with
+# FT_STATE=aura.txt FT_SPELL='Wild Growth' FT_TARGET=Forest tests/scripts/record-targets.ts.
+humanlife=20
+ailife=20
+turn=5
+activeplayer=human
+activephase=MAIN1
+humanhand=Wild Growth
+humanlibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+humanbattlefield=Mountain;Forest;Arbor Elf
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Mountain;Forest;Arbor Elf

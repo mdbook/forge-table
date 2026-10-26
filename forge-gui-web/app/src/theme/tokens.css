@@ -1,0 +1,56 @@
+/*
+ * Kiln chrome tokens: the dark palette.
+ * Hover = 12% toward white, pressed = 18% toward black.
+ */
+:root {
+  --bg: #0d0f13;
+  --surface: #14171c;
+  --surface2: #1a1e24;
+  --surface3: #222730;
+  --border: #272c35;
+  --border-strong: #363c47;
+  --text: #e8eaee;
+  --text-muted: #9ba2ae;
+  --text-faint: #666d79;
+  --danger: #f87171;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --ember: #ff7a33;
+  --ember-hover: #ff8f54; /* 12% toward white */
+  --ember-pressed: #d1642a; /* 18% toward black */
+  --on-ember: #1c0d03;
+  /* Picked (selection clarity): a chosen card / player, never the ember "can pick". */
+  --pick: #22d3ee;
+  --on-pick: #04232a;
+  --steel: #5b8def;
+  --brass: #b08d57;
+  --brass-dim: rgba(176, 141, 87, 0.35);
+  --target-glow: #ffe3b0;
+  --attack: #ff5a4e;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 1px rgba(0, 0, 0, 0.3);
+  --elev-2: 0 6px 18px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35);
+  --elev-3: 0 18px 48px rgba(0, 0, 0, 0.55), 0 4px 10px rgba(0, 0, 0, 0.4);
+
+  --font-ui: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-num: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --dur-micro: 90ms;
+  --dur-short: 160ms;
+  --dur-base: 240ms;
+
+  /* Table transform, set by the app on resize: s = table scale, hs = HUD scale = max(s, 0.9). */
+  --s: 1;
+  --hs: 1;
+  --ox: 0px;
+  --oy: 0px;
+  --dx: 0;
+  --u: calc(var(--hs) * 1px);
+}

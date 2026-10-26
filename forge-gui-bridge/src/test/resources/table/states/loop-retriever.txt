@@ -1,0 +1,13 @@
+# Loop shortcut fixture (LoopShortcutTest): the Myr Retriever loop. Sacrifice a Retriever to Ashnod's Altar for
+# {C}{C}, its trigger returns the other one from the graveyard, cast that one with the mana. Zulaport Cutthroat drains
+# 1 each time, so the opponent's life counts the loops.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanlibrary=Wastes;Wastes;Wastes;Wastes;Wastes;Wastes;Wastes;Wastes;Wastes;Wastes
+humanbattlefield=Ashnod's Altar;Myr Retriever;Zulaport Cutthroat
+humangraveyard=Myr Retriever
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Grizzly Bears

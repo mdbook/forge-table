@@ -1,0 +1,16 @@
+# Brawl fixture (forge-gui-web replay goldens 47-50): both commanders wait in their command zones; I cast mine
+# (Fynn, {1}{G}) from the command zone, Bolt it, put it back in the command zone, and it waits there with its tax
+# ({3}{G}, too dear for my last two lands). Played with --format brawl; recorded with tests/scripts/record-brawl.ts.
+humanlife=25
+ailife=25
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Lightning Bolt;Forest
+humanlibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+humanbattlefield=Forest;Forest;Forest;Mountain;Mountain
+humancommand=Fynn, the Fangbearer|IsCommander
+aihand=Mountain;Mountain;Mountain
+ailibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+aibattlefield=Mountain;Mountain;Mountain
+aicommand=Krenko, Mob Boss|IsCommander

@@ -137,6 +137,7 @@ public class ForgePreferences extends AbstractPreferences<ForgePreferences.FPref
         YIELD_INTERRUPT_ON_MASS_REMOVAL ("false"),
         YIELD_AUTO_PASS_NO_ACTIONS ("false"),
         YIELD_AUTO_PASS_RESPECTS_INTERRUPTS ("false"),
+        YIELD_AUTO_RESOLVE_OWN ("false"),
         YIELD_AVAILABLE_ACTIONS_BUDGET_MS ("0"),
         YIELD_SKIP_PHASE_DELAY ("false"),
         YIELD_SKIP_RESOLVE_DELAY ("false"),

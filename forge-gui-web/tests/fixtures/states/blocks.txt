@@ -1,0 +1,13 @@
+# Blocks fixture (forge-gui-web replay goldens, declare blockers): the AI attacks with Wind Drake (flying), Hill Giant
+# and Grizzly Bears. With the one-step block act I block the Drake with Giant Spider (reach) and double-block the Hill
+# Giant with my two Grizzly Bears; the AI's Bears get through. The recording ends after combat damage.
+# Recorded with tests/scripts/record-blocks.ts.
+humanlife=20
+ailife=20
+turn=2
+activeplayer=ai
+activephase=COMBAT_DECLARE_ATTACKERS
+humanlibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Giant Spider;Grizzly Bears;Grizzly Bears;Mountain;Mountain;Forest
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Wind Drake|Attacking;Hill Giant|Attacking;Grizzly Bears|Attacking;Island;Island;Mountain

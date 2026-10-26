@@ -1,0 +1,12 @@
+# Auto-pass fixture (AutoPassTest): the AI's main phase. My only cards are two Mountains (mana abilities only)
+# and Kessig Flamebreather (sorcery speed), so I have nothing to do until my own main phase.
+humanlife=20
+ailife=20
+turn=2
+activeplayer=ai
+activephase=MAIN1
+humanhand=Kessig Flamebreather
+humanlibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Mountain;Mountain
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Island;Island

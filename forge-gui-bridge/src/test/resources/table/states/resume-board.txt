@@ -1,0 +1,16 @@
+# Resume fixture (CheckpointTest): what a checkpoint must keep. Life, turn, tapped, counters, an attached aura,
+# summoning sickness, a face-down creature, graveyard, exile and the library order.
+humanlife=13
+ailife=17
+turn=5
+activeplayer=human
+activephase=MAIN1
+humanhand=Lightning Bolt;Mountain
+humanlibrary=Mountain;Island;Mountain;Island;Mountain;Island;Mountain;Island;Mountain;Island
+humanbattlefield=Mountain|Tapped;Mountain;Forest;Grizzly Bears|Counters:P1P1=2|Id:901;Rancor|AttachedTo:901;Fathom Seer|FaceDown
+humangraveyard=Fireblast
+humanexile=Counterspell
+aihand=Counterspell
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Accumulated Knowledge
+aibattlefield=Island|Tapped;Island;Wind Drake|SummonSick
+aigraveyard=Accumulated Knowledge

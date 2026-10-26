@@ -63,7 +63,45 @@ public class PlayerControllerAi extends PlayerController {
     public PlayerControllerAi(Game game, Player p, LobbyPlayer lp) {
         super(game, p, lp);
 
-        brains = new AiController(p, game);
+        brains = createBrains(p, game);
+    }
+
+    /**
+     * forge-table: factory for the AI brain so a subclass (mtg-ai's external-policy controller) can
+     * install an instrumented {@link AiController}. Called from the constructor: an override must not
+     * read its own instance fields.
+     */
+    protected AiController createBrains(Player p, Game game) {
+        return new AiController(p, game);
+    }
+
+    /**
+     * forge-table: may the AI mana payer sacrifice a permanent that the ability being paid for targets
+     * (Eldrazi Spawn, Treasure, ...)? Upstream: never ("not a good idea"), which makes a legal targeted
+     * activation unpayable when that permanent is the only source left. An external-policy seat answers
+     * true on a retry so a legal choice gets paid. Default false = upstream behaviour.
+     */
+    public boolean mayPayBySacrificingTarget() {
+        return false;
+    }
+
+    /**
+     * forge-table: when a mana ability has a "tap an untapped creature you control" cost (Saruli
+     * Caretaker, ...), prefer tapping permanents without mana abilities, so the payer does not tap
+     * another mana source it still needs. Default false = upstream behaviour (lowest power first).
+     */
+    public boolean preferNonManaSourcesForManaTapCosts() {
+        return false;
+    }
+
+    /**
+     * forge-table: among mana sources the AI rates equally, tap first the ones held instant / flash cards need
+     * least (each colored pip of a held instant spreads 1 over the sources able to pay it), so the payment keeps
+     * the most hand instants castable (interim fix before mana-source selection is policy-owned).
+     * Default false = upstream behaviour.
+     */
+    public boolean preferSourcesKeepingInstantsCastable() {
+        return false;
     }
 
     public boolean pilotsNonAggroDeck() {

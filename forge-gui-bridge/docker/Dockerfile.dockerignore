@@ -1,0 +1,4 @@
+# the build context is forge-gui-bridge/: send only the release zip and the entrypoint
+*
+!docker/entrypoint.sh
+!target/dist/*.zip

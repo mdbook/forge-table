@@ -1,0 +1,26 @@
+{
+  "name": "forge-table",
+  "private": true,
+  "description": "Forge Table web client workspace.",
+  "license": "GPL-3.0-only",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "app",
+    "protocol",
+    "tests"
+  ],
+  "scripts": {
+    "build": "npm run build -w @forge-table/app",
+    "dev": "npm run dev -w @forge-table/app",
+    "typecheck": "npm run typecheck -w @forge-table/app && npm run typecheck -w @forge-table/tests",
+    "test:unit": "npm run test -w @forge-table/app",
+    "test:e2e": "npm run test:e2e -w @forge-table/tests",
+    "record:session": "node tests/scripts/record-session.ts",
+    "record:zones": "node tests/scripts/record-zones.ts",
+    "record:choosers": "node tests/scripts/record-choosers.ts",
+    "record:split": "node tests/scripts/record-split.ts",
+    "record:brawl": "node tests/scripts/record-brawl.ts"
+  }
+}

@@ -1,0 +1,11 @@
+# Adjusted costs (AdjustedCostTest): Thoughtcast ({4}{U}, affinity for artifacts) with two artifacts out costs {2}{U}.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Thoughtcast;Island
+humanlibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+humanbattlefield=Ornithopter;Ornithopter;Island
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Forest

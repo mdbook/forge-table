@@ -1,0 +1,15 @@
+# Reveal-to-opponent fixture (RevealedToOpponentTest): Inquisition of Kozilek targets any player (not just
+# an opponent), so I can self-target it to put my own hand through the same reveal path an opponent's Duress
+# would. My Island doesn't match its nonland discard filter, so it survives in hand, flagged revealedToOpponent
+# in my own view, until I play it away.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Inquisition of Kozilek;Island
+humanlibrary=Swamp;Swamp;Swamp;Swamp;Swamp;Swamp;Swamp;Swamp;Swamp;Swamp
+humanbattlefield=Swamp
+aihand=
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Mountain

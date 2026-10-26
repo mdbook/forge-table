@@ -1,0 +1,11 @@
+# Auto-pass fixture (AutoPassTest): the AI's main phase, Craw Wurm ready to attack; I have a Runeclaw Bear to block with.
+humanlife=20
+ailife=20
+turn=2
+activeplayer=ai
+activephase=MAIN1
+humanhand=Kessig Flamebreather
+humanlibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Mountain;Mountain;Runeclaw Bear
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Forest;Forest;Craw Wurm

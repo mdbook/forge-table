@@ -1,0 +1,44 @@
+# Forge Table multi-game server (router mode), one instance per channel: forge-table@stable, forge-table@dev.
+# Reference unit; the deployed one is maintained separately. Settings in /etc/forge-table/<channel>.env (see forge-table.env.example).
+# The build is /opt/forge-table/<channel>/current (the unpacked zip), installed by forge-table-deploy.sh.
+[Unit]
+Description=Forge Table multi-game server (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=forge-table
+Group=forge-table
+WorkingDirectory=/opt/forge-table/%i/current
+StateDirectory=forge-table/%i
+# Every router flag can come from the environment as FT_<FLAG> (--max-matches: FT_MAX_MATCHES); a flag on the command
+# line wins. Upload is off unless the env file says otherwise: never upload with no explicit opt-in.
+Environment=FT_MTGAI_UPLOAD=off
+EnvironmentFile=/etc/forge-table/%i.env
+# Children inherit -Xmx1536m and the -D options; the router's data (games, imported decks, card-art cache) is in
+# /var/lib/forge-table/<channel>. A deploy's drain exits 0, so on-failure doesn't restart a drained server: the
+# deploy script starts the new build. An admin's "update now" (lobby) exits 75, so systemd starts it again.
+# systemd 252 (Debian 12) does not expand a variable as the executable: the path is literal.
+ExecStart=/usr/bin/java -Xmx1536m -Xss8m \
+  --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED \
+  --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED \
+  --add-opens java.desktop/javax.imageio.spi=ALL-UNNAMED \
+  -Dforge.table.ignoreStdin=true -Dforge.mtgai.aiCastRemAIDeck=true -Dmtgai.neural.dir=neural \
+  -cp lib/* forge.bridge.Main --router \
+  --data /var/lib/forge-table/%i --assets . --web web --decks decks
+Restart=on-failure
+RestartSec=5
+# Stopped by SIGTERM, the JVM exits 143: a clean stop, not a failure.
+SuccessExitStatus=143
+# On SIGTERM the router closes each game's stdin (the game flushes its save and exits; SIGTERM after 5 s, SIGKILL
+# after 10 s) and resumes the saved ones at its next start. mixed: SIGTERM goes to the router alone, so it can mark
+# which games were being played before they stop; whatever is left at the timeout is killed.
+KillMode=mixed
+TimeoutStopSec=30
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

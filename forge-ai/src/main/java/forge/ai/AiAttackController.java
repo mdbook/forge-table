@@ -880,7 +880,8 @@ public class AiAttackController {
         // nextTurn is now only used by effect from Oracle en-Vec, which can skip check must attack,
         // because creatures not chosen can't attack.
         if (!nextTurn) {
-            ExecutorService executor = Executors.newFixedThreadPool(
+            // mtg-ai: null = run the tasks sequentially on this thread (AiController.MTGAI_INLINE_AI_EVAL)
+            ExecutorService executor = AiController.MTGAI_INLINE_AI_EVAL ? null : Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors(), r -> {
                     Thread t = Executors.defaultThreadFactory().newThread(r);
                     t.setDaemon(true);
@@ -952,12 +953,22 @@ public class AiAttackController {
                 });
             }
 
-            try {
-                executor.invokeAll(tasks, ai.getGame().getAITimeout(), TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            } finally {
-                executor.shutdownNow();
+            if (executor == null) {
+                for (Callable<Integer> task : tasks) {
+                    try {
+                        task.call();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            } else {
+                try {
+                    executor.invokeAll(tasks, ai.getGame().getAITimeout(), TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    executor.shutdownNow();
+                }
             }
 
             if (attackersLeft.isEmpty()) {

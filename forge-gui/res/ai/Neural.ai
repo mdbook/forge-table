@@ -1,0 +1,5 @@
+# mtg-ai human seat: selecting this profile seats the mtg-ai neural policy (an ONNX model) instead of the Forge AI.
+# See forge.player.GamePlayerUtil#NEURAL_PROFILE. It needs mtg-ai's jar, ONNX Runtime and the model on the classpath
+# (the mtgai-humanseat package); without them Forge says so and falls back to the Default AI.
+# No properties on purpose: the neural seat plays with the Default profile for every decision the policy does not own,
+# and a stock AI that lands here (e.g. "Random (Every Game)") uses the built-in defaults.

@@ -86,6 +86,22 @@ import static java.lang.Math.max;
  * @version $Id$
  */
 public class AiController {
+    /**
+     * mtg-ai: -Dforge.mtgai.aiCastRemAIDeck=true keeps cards flagged AI:RemoveDeck:All in the priority
+     * candidate list of getSpellAbilityToPlay, so the Forge AI (opponent / DelegatingOracle) can cast the
+     * Pauper decks' flagged cards (Looting, Shaman, Strands). Default: stripped, as upstream.
+     */
+    private static final boolean MTGAI_CAST_REM_AI_DECK = Boolean.getBoolean("forge.mtgai.aiCastRemAIDeck");
+    /**
+     * mtg-ai: -Dforge.mtgai.inlineAiEval=true runs the per-decision "Game AI Eval" task on the game thread
+     * instead of a fresh thread with a game.getAITimeout() (5 s) timeout, and runs the attacker
+     * must-attack fan-out in AiAttackController sequentially instead of on an availableProcessors()-sized
+     * pool. Removes a thread spawn per AI priority decision and N threads per AI attack declaration, and
+     * makes both deterministic under N game threads per JVM. No timeout when inlined: wall caps belong to
+     * the caller (mtg-ai's cooperative oracle abort). Default: threaded, as upstream.
+     */
+    public static final boolean MTGAI_INLINE_AI_EVAL = Boolean.getBoolean("forge.mtgai.inlineAiEval");
+
     private final Player player;
     private final Game game;
     private final AiCardMemory memory;
@@ -1565,7 +1581,7 @@ public class AiController {
         saList.removeIf(spellAbility -> {
             // don't include removedAI cards if somehow the AI can play the ability or gain control of unsupported card
             // TODO allow when experimental profile?
-            return spellAbility.isLandAbility() || (spellAbility.getHostCard() != null && ComputerUtilCard.isCardRemAIDeck(spellAbility.getHostCard()));
+            return spellAbility.isLandAbility() || (!MTGAI_CAST_REM_AI_DECK && spellAbility.getHostCard() != null && ComputerUtilCard.isCardRemAIDeck(spellAbility.getHostCard()));
         });
         //removed skipped SA
         skipped = saList.stream().filter(SpellAbility::isSkip).collect(Collectors.toList());
@@ -1679,6 +1695,15 @@ public class AiController {
 
             return null;
         });
+        if (MTGAI_INLINE_AI_EVAL) {
+            future.run();
+            try {
+                return future.get();
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
         Thread t = new Thread(future, "Game AI Eval");
         t.setDaemon(true);
         t.start();

@@ -66,6 +66,16 @@ public class InputAttack extends InputSyncronizedBase {
         defenders = combat.getDefenders();
     }
 
+    /** The combat being declared (read-only use: Forge Table's defenders list). */
+    public Combat getCombat() {
+        return combat;
+    }
+
+    /** The player declaring attackers. */
+    public Player getAttackingPlayer() {
+        return playerAttacks;
+    }
+
     @Override
     public final void showMessage() {
         setCurrentDefender(defenders.getFirst());

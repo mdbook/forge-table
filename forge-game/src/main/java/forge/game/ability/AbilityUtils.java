@@ -1698,6 +1698,12 @@ public class AbilityUtils {
                     return doXMath(calculateAmount(c, sq[sa.isOptionalCostPaid(OptionalCost.Teamwork) ? 1 : 2], ctb), expr, c, ctb);
                 }
 
+                // The spell being cast or checked knows if its gift is promised; the card's castSA may be a stale look at
+                // another version of it (a promised copy left there by a canPlay check). Its permanents fall through.
+                if (sq[0].startsWith("PromisedGift") && sa.getRootAbility().isSpell() && c.equals(sa.getRootAbility().getHostCard())) {
+                    return doXMath(calculateAmount(c, sq[sa.isGiftPromised() ? 1 : 2], ctb), expr, c, ctb);
+                }
+
                 if (sq[0].startsWith("OptionalGenericCostPaid")) {
                     return doXMath(calculateAmount(c, sq[sa.isOptionalCostPaid(OptionalCost.Generic) ? 1 : 2], ctb), expr, c, ctb);
                 }

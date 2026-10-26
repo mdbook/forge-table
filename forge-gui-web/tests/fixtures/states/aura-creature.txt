@@ -1,0 +1,12 @@
+# Aura on a creature (forge-gui-web replay, control for aura.txt): my first main phase; I cast Rancor (Enchant creature)
+# at my Arbor Elf. Recorded with FT_STATE=aura-creature.txt FT_SPELL=Rancor FT_TARGET='Arbor Elf' tests/scripts/record-targets.ts.
+humanlife=20
+ailife=20
+turn=5
+activeplayer=human
+activephase=MAIN1
+humanhand=Rancor
+humanlibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+humanbattlefield=Mountain;Forest;Arbor Elf
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Mountain;Forest;Arbor Elf

@@ -1,0 +1,11 @@
+# Combat acts fixture (CombatActsTest): my first main phase, Grizzly Bears and Hill Giant ready to attack the AI or
+# its Jace Beleren.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanlibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Grizzly Bears;Hill Giant;Mountain
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Jace Beleren|Counters:LOYALTY=3;Island

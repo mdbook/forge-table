@@ -1,0 +1,11 @@
+# Auto-pay hint (AutoPayHintTest): Mountain and Island for Raging Goblin's {R}: only the Mountain can pay it, so unambiguous (and Auto taps just the Mountain).
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Raging Goblin
+humanlibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+humanbattlefield=Mountain;Island
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Forest

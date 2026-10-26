@@ -1,0 +1,12 @@
+# Reveal fixture (RevealedHandTest): Duress reveals the AI's hand; what stays there stays face up to me.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Duress
+humanlibrary=Swamp;Swamp;Swamp;Swamp;Swamp;Swamp;Swamp;Swamp;Swamp;Swamp
+humanbattlefield=Swamp
+aihand=Counterspell;Grizzly Bears;Island
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Mountain

@@ -1,0 +1,14 @@
+# Delve-in-hand fixture (DelveHandPromptTest): Treasure Cruise in hand with cards in the
+# graveyard to delve, and a second land in hand so there's an unrelated action to take without casting it.
+# Enough Islands on the battlefield to pay {7}{U} outright, so delving isn't required to cast.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Treasure Cruise;Island
+humanlibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+humanbattlefield=Island;Island;Island;Island;Island;Island;Island;Island
+humangraveyard=Mountain;Mountain;Mountain
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Forest

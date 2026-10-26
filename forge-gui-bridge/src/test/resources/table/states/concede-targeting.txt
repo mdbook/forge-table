@@ -1,0 +1,12 @@
+# Concede fixture (ConcedeTest): my first main phase, Lightning Bolt in hand and a Mountain to cast it; the AI has
+# a creature, so the Bolt asks for its target with Forge's InputSelectTargets.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Lightning Bolt
+humanlibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Mountain
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Grizzly Bears;Island

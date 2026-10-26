@@ -242,10 +242,10 @@ public class CostAdjustment {
         }
 
         if (sa.isSpell() && sa.isOffering()) {
-            adjustCostByOffering(cost, sa);
+            adjustCostByOffering(cost, sa, test);
         }
         if (sa.isSpell() && sa.isEmerge() && sa.getKeyword() instanceof Emerge emerge) {
-            adjustCostByEmerge(cost, sa, emerge);
+            adjustCostByEmerge(cost, sa, emerge, test);
         }
 
         // Set cost (only used by Trinisphere) is applied last
@@ -261,24 +261,30 @@ public class CostAdjustment {
             if (host.hasKeyword(Keyword.DELVE)) {
                 host.clearDelved();
 
-                final CardZoneTable table = new CardZoneTable();
-                final CardCollection mutableGrave = new CardCollection(activator.getCardsIn(ZoneType.Graveyard));
-                final CardCollectionView toExile = activator.getController().chooseCardsToDelve(cost.getUnpaidShards(ManaCostShard.GENERIC), mutableGrave);
-                for (final Card c : toExile) {
-                    cost.decreaseGenericMana(1);
-                    if (cardsToDelveOut != null) {
-                        cardsToDelveOut.add(c);
-                    } else if (!test) {
-                        host.addDelved(c);
-                        final Card d = game.getAction().exile(c, null, null);
-                        host.addExiledCard(d);
-                        d.setExiledWith(host);
-                        d.setExiledBy(host.getController());
-                        d.setExiledSA(sa);
-                        table.put(ZoneType.Graveyard, d.getZone().getZoneType(), d);
+                // A speculative cost check (hand-cost preview, actionable-card highlighting, a priority
+                // refresh, …) must never surface the real "how many cards to delve?" prompt to a human;
+                // only an actual cast payment should ask. The AI's own controller answers silently either
+                // way, so only a genuine human preview is skipped here.
+                if (!test || activator.getController().isAI()) {
+                    final CardZoneTable table = new CardZoneTable();
+                    final CardCollection mutableGrave = new CardCollection(activator.getCardsIn(ZoneType.Graveyard));
+                    final CardCollectionView toExile = activator.getController().chooseCardsToDelve(cost.getUnpaidShards(ManaCostShard.GENERIC), mutableGrave);
+                    for (final Card c : toExile) {
+                        cost.decreaseGenericMana(1);
+                        if (cardsToDelveOut != null) {
+                            cardsToDelveOut.add(c);
+                        } else if (!test) {
+                            host.addDelved(c);
+                            final Card d = game.getAction().exile(c, null, null);
+                            host.addExiledCard(d);
+                            d.setExiledWith(host);
+                            d.setExiledBy(host.getController());
+                            d.setExiledSA(sa);
+                            table.put(ZoneType.Graveyard, d.getZone().getZoneType(), d);
+                        }
                     }
+                    table.triggerChangesZoneAll(game, sa);
                 }
-                table.triggerChangesZoneAll(game, sa);
             }
             if (host.hasKeyword(Keyword.CONVOKE)) {
                 adjustCostByConvokeOrImprovise(cost, sa, activator, false, true, test);
@@ -315,10 +321,18 @@ public class CostAdjustment {
         }
 
         Player activator = sa.getActivatingPlayer();
+        // Same rule as Delve: a human preview must not raise the real "choose a player to assist?" chooser.
+        if (test && !activator.getController().isAI()) {
+            return true;
+        }
         PlayerCollection otherPlayers = activator.getAllOtherPlayers();
 
         Player assistant = activator.getController().choosePlayerToAssistPayment(otherPlayers, sa, "Choose a player to assist paying this spell", genericLeft);
         if (assistant == null) {
+            return true;
+        }
+        // An AI caster's preview may still pick a human assistant: don't ask that human how much to pay either.
+        if (test && !assistant.getController().isAI()) {
             return true;
         }
         int requestedAmount = genericLeft;
@@ -336,6 +350,12 @@ public class CostAdjustment {
     private static void adjustCostByConvokeOrImprovise(ManaCostBeingPaid cost, final SpellAbility sa, final Player payer, boolean artifacts, boolean creatures, boolean test) {
         if (creatures && !artifacts) {
             sa.clearTappedForConvoke();
+        }
+
+        // Same rule as Delve: a human preview (castability check, hand-cost display, …) must not raise
+        // the real convoke/improvise/waterbend "tap these to help pay?" chooser.
+        if (test && !payer.getController().isAI()) {
+            return;
         }
 
         CardCollectionView untappedCards = CardLists.filter(payer.getCardsIn(ZoneType.Battlefield),
@@ -377,7 +397,12 @@ public class CostAdjustment {
         }
     }
 
-    private static void adjustCostByOffering(final ManaCostBeingPaid cost, final SpellAbility sa) {
+    private static void adjustCostByOffering(final ManaCostBeingPaid cost, final SpellAbility sa, boolean test) {
+        // Same rule as Delve: a human preview must not raise the real "sacrifice a <type> as an offering?"
+        // chooser (nor mark the chosen permanent as the offering, which only a real cast should do).
+        if (test && !sa.getActivatingPlayer().getController().isAI()) {
+            return;
+        }
         String offeringType = "";
         for (KeywordInterface inst : sa.getHostCard().getKeywords(Keyword.OFFERING)) {
             final String kw = inst.getOriginal();
@@ -401,9 +426,13 @@ public class CostAdjustment {
         toSac.setUsedToPay(true); //stop it from interfering with mana input
     }
 
-    private static void adjustCostByEmerge(final ManaCostBeingPaid cost, final SpellAbility sa, final Emerge emerge) {
+    private static void adjustCostByEmerge(final ManaCostBeingPaid cost, final SpellAbility sa, final Emerge emerge, boolean test) {
         String validStr = emerge.getValidType();
         Player p = sa.getActivatingPlayer();
+        // Same rule as Delve: a human preview must not raise the real "sacrifice a creature?" chooser.
+        if (test && !p.getController().isAI()) {
+            return;
+        }
         CardCollectionView canEmerge = CardLists.filter(p.getCardsIn(ZoneType.Battlefield),
                 CardPredicates.restriction(validStr, p, sa.getHostCard(), sa),
                 CardPredicates.canBeSacrificedBy(sa, false));

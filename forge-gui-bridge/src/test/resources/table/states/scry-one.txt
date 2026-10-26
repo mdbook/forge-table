@@ -1,0 +1,12 @@
+# ScryPreviewTest: my main phase with a scry land and a surveil land in hand. Playing one triggers scry 1 or
+# surveil 1 about one library card the client has never seen: the ask must carry that card's face.
+humanlife=20
+ailife=20
+turn=2
+activeplayer=human
+activephase=MAIN1
+humanhand=Temple of Epiphany;Undercity Sewers
+humanlibrary=Lightning Bolt;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Mountain
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Island

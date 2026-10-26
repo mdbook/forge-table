@@ -1,0 +1,12 @@
+# Auto-pass fixture (AutoPassTest): autopass-filter.txt with Giant's Boulder already tapped, so nothing can make the
+# Bolt's {R} and auto-skip passes the AI's turn.
+humanlife=20
+ailife=20
+turn=2
+activeplayer=ai
+activephase=MAIN1
+humanhand=Lightning Bolt
+humanlibrary=Plains;Plains;Plains;Plains;Plains;Plains;Plains;Plains;Plains;Plains
+humanbattlefield=Plains;Giant's Boulder|Tapped
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Island;Island

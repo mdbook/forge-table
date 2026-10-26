@@ -3,7 +3,6 @@ package forge.ai;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
 
 import java.util.Arrays;
 import java.util.List;
@@ -13,7 +12,8 @@ import java.util.function.Supplier;
 public class AiCache {
 
     // stores result + args as vector
-    private final static Multimap<String, List<Object>> dataMap = Multimaps.synchronizedMultimap(ArrayListMultimap.create());
+    // forge-table: thread-scoped (one game per game thread), so N games per JVM never read or clear each other's entries
+    private final static ThreadLocal<Multimap<String, List<Object>>> DATA = ThreadLocal.withInitial(ArrayListMultimap::create);
 
     public static boolean identity(Object a, Object b) {
         return a == b;
@@ -24,7 +24,7 @@ public class AiCache {
     // for that you can pass Functions that compare the args
     public static <T> T getCached(String key, Supplier<T> func, List<BiFunction<Object, Object, Boolean>> argsCheck, Object... args) {
         // TODO would like a good strategy to derive default key, but there's no clean way to obtain the method name
-        for (List<Object> cached : Lists.newArrayList(dataMap.get(key))) {
+        for (List<Object> cached : Lists.newArrayList(DATA.get().get(key))) {
             boolean hit = true;
             for (int i = 0; i < args.length; i++) {
                 BiFunction<Object, Object, Boolean> checker = argsCheck == null ? Object::equals : argsCheck.get(i);
@@ -40,13 +40,13 @@ public class AiCache {
         T result = func.get();
         List<Object> cached = Lists.newArrayList(result);
         cached.addAll(Arrays.asList(args));
-        dataMap.put(key, cached);
+        DATA.get().put(key, cached);
         return result;
     }
 
     // TODO add different scopes + staleness indicator
     public static void clear() {
-        dataMap.clear();
+        DATA.get().clear();
     }
 
 }

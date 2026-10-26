@@ -24,6 +24,9 @@ public class LondonMulligan extends AbstractMulligan {
     public void mulliganDraw() {
         player.drawCards(handSizeAfterNextMulligan());
         int tuckingCards = tuckCardsDuringMulligan();
+        if (tuckingCards == 0) {
+            return; // a free mulligan: nothing to put on the bottom, so no "choose 0 cards" prompt
+        }
         CardCollection hand = new CardCollection(player.getCardsIn(ZoneType.Hand));
 
         for (final Card c : player.getController().tuckCardsViaMulligan(hand, tuckingCards)) {

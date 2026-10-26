@@ -1,0 +1,12 @@
+# Auto-pass fixture (AutoPassTest): the AI's main phase, with Grizzly Bears in hand and the mana to cast it.
+humanlife=20
+ailife=20
+turn=2
+activeplayer=ai
+activephase=MAIN1
+humanhand=Kessig Flamebreather
+humanlibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Mountain;Mountain
+aihand=Grizzly Bears
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Forest;Forest

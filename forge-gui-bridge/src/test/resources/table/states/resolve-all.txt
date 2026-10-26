@@ -1,0 +1,12 @@
+# Resolve all fixture (ResolveAllTest): my first main phase, two Lightning Bolts and two Mountains, so both go on the
+# stack before either resolves.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Lightning Bolt;Lightning Bolt
+humanlibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Mountain;Mountain
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Grizzly Bears

@@ -1,0 +1,13 @@
+# Installs the newest Forge Table build for a channel (stable drains first). Started by forge-table-deploy@<channel>.timer.
+[Unit]
+Description=Forge Table deploy (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# root: it restarts forge-table@%i. The token file holds GITLAB_READ_TOKEN=<read_package_registry token>, mode 0600.
+# FT_API (where the channel pointers live) and FT_SIGNING_PUB (the stable channel's update signing public key): no
+# secrets, so a plain file, e.g. FT_API=https://gitlab.example.org/api/v4/projects/<id>/packages/generic
+EnvironmentFile=/etc/forge-table/deploy.env
+ExecStart=/opt/forge-table/bin/forge-table-deploy.sh %i /etc/forge-table/deploy-token.env

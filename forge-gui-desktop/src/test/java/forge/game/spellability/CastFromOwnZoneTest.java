@@ -65,6 +65,30 @@ public class CastFromOwnZoneTest extends AITest {
                 saw.getAllPossibleAbilities(other, false).isEmpty());
     }
 
+    /**
+     * A plotted card is cast from exile on a later turn (Forge Table never offered it). The cast itself was always
+     * legal; the external-zone scan that feeds the playable highlight and auto-pass skipped it.
+     */
+    @Test
+    public void aPlottedCardIsOfferedFromExileOnALaterTurn() {
+        Game game = initAndCreateGame();
+        Player owner = game.getPlayers().get(1);
+
+        Card slickshot = addCardToZone("Slickshot Show-Off", owner, ZoneType.Exile);
+        slickshot.setPlotted(true);
+        game.getPhaseHandler().devModeSet(PhaseType.MAIN1, owner);
+        assertTrue("not on the turn it was plotted", slickshot.getAllPossibleAbilities(owner, true).isEmpty());
+        // plotted on an earlier turn
+        slickshot.setTurnInZone(game.getPhaseHandler().getTurn() - 1);
+
+        assertFalse("its owner may cast it for free",
+                slickshot.getAllPossibleAbilities(owner, true).isEmpty());
+        assertTrue("it is listed among the cards castable outside the hand",
+                owner.getCardsIn(ZoneType.Flashback).contains(slickshot));
+        assertTrue("so it counts as an available action",
+                forge.ai.AvailableActions.collectActionable(owner, 5000).contains(slickshot.getView()));
+    }
+
     private void resolveFromHand(Game game, String name, Player p) {
         SpellAbility sa = addCardToZone(name, p, ZoneType.Hand).getFirstSpellAbility();
         sa.setActivatingPlayer(p);

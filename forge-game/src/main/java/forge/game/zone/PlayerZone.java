@@ -61,7 +61,7 @@ public class PlayerZone extends Zone {
                     || c.hasKeyword(Keyword.ESCAPE) || c.hasKeyword(Keyword.DISTURB))) {
                 return true;
             }
-            if (PlayerZone.this.is(ZoneType.Exile) && (c.isForetold() || c.isOnAdventure())) {
+            if (PlayerZone.this.is(ZoneType.Exile) && (c.isForetold() || c.isOnAdventure() || c.isPlotted())) {
                 return true;
             }
 

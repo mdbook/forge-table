@@ -1,0 +1,3 @@
+{"t":"welcome","proto":1,"session":"pvp","forgeVersion":"replay","features":["pid","settle","replay"],"match":false,"defaults":{"ai":"Default"},"pvp":{"seat":0,"you":"Mik","opponent":null,"oppReady":false,"youReady":false}}
+{"t":"pvp","kind":"lobby","you":"Mik","opponent":"Sam","oppReady":false,"youReady":false}
+{"t":"pvp","kind":"lobby","you":"Mik","opponent":"Sam","oppReady":false,"youReady":true}

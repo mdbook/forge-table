@@ -1,0 +1,16 @@
+# Split fixture (forge-gui-web replay goldens 16–18): my Rampaging Baloths (6/6 trample, wearing Lure) is
+# attacking, so both of the AI's untapped Grizzly Bears must block it: combat damage goes to the damage assignment
+# (two blockers plus the player). In my second main phase Arc Lightning (3 damage divided) at the tapped Bears
+# and the AI goes to the amount split; then Notion Rain surveils 2 (top and graveyard lanes, golden 18). Recorded with
+# tests/scripts/record-split.ts.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=COMBAT_DECLARE_ATTACKERS
+humanhand=Arc Lightning;Notion Rain;Mountain
+humanlibrary=Lightning Bolt;Counterspell;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Rampaging Baloths|Id:900|Attacking;Lure|AttachedTo:900;Mountain;Mountain;Mountain;Forest;Forest;Forest;Island;Swamp
+aihand=Forest;Forest
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Grizzly Bears;Grizzly Bears;Grizzly Bears|Tapped;Forest;Forest

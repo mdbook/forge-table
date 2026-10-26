@@ -36,6 +36,8 @@ import forge.game.zone.ZoneType;
 import forge.gamemodes.match.input.InputSelectTargets;
 import forge.util.Aggregates;
 import forge.util.IterableUtil;
+import forge.util.CardTranslation;
+import forge.util.Localizer;
 import forge.util.TextUtil;
 
 import java.util.*;
@@ -64,6 +66,19 @@ public class TargetSelection {
     }
 
     private boolean bTargetingDone = false;
+
+    /** Say why a cast or activation stopped, rather than letting it silently not happen (e.g. a gift whose extra target is missing). */
+    private void tellNothingToTarget(final TargetRestrictions tgt) {
+        final Localizer localizer = Localizer.getInstance();
+        final String name = CardTranslation.getTranslatedName(ability.getHostCard().getName());
+        final String what = tgt.getVTSelection() == null || tgt.getVTSelection().isEmpty() ? localizer.getMessage("lblTargets") : tgt.getVTSelection();
+        String message = localizer.getMessage("lblNothingToTargetCantPlay", name, what);
+        if (ability.isGiftPromised()) {
+            message += " " + localizer.getMessage("lblNothingToTargetTryWithoutGift");
+        }
+        // Forge Table's bridge shows message() as a non-blocking toast (GuiMapping "message"); desktop keeps its usual dialog
+        controller.getGui().message(message, name);
+    }
 
     private boolean isMandatory() {
         // even if its an optionalTrigger, the targeting is still mandatory
@@ -115,6 +130,11 @@ public class TargetSelection {
 
         if (!hasEnoughCandidates && !hasEnoughTargets) {
             // Cancel ability if there aren't any valid Candidates
+            // only for a spell or activated ability the player started; not its sub-abilities or reflexive triggers
+            if (numTargets == null && !ability.isTrigger() && ability.getParent() == null
+                    && (ability.isSpell() || ability.isActivatedAbility())) {
+                tellNothingToTarget(tgt);
+            }
             return false;
         }
         if (isMandatory() && candidates.isEmpty() && hasEnoughTargets) {

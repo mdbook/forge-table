@@ -1,0 +1,20 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "e2e",
+    "support",
+    "scripts",
+    "playwright.config.ts",
+    "../protocol/src"
+  ]
+}

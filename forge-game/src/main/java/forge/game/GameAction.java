@@ -1909,6 +1909,16 @@ public class GameAction {
     }
 
     public void checkGameOverCondition() {
+        // A concede arrives on a UI/network thread (PlayerControllerHuman.concede) while the game thread may be
+        // running its own state-based check: both would see the loss and run Game.onPlayerLost at once
+        // (ConcurrentModificationException on the game thread, game never ends). Serialize on the game, the
+        // same monitor setGameOver already holds, so the second caller sees the game over and returns.
+        synchronized (game) {
+            checkGameOverConditionLocked();
+        }
+    }
+
+    private void checkGameOverConditionLocked() {
         if (game.isGameOver()) {
             return;
         }
@@ -2204,8 +2214,15 @@ public class GameAction {
 
         final ZoneType zone = cards.getFirst().getZone().getZoneType();
         final Player owner = cards.getFirst().getOwner();
+        final List<Player> others = Lists.newArrayList();
         for (final Player p : to) {
             p.getController().reveal(cards, zone, owner, messagePrefix, addSuffix);
+            if (p != owner) {
+                others.add(p);
+            }
+        }
+        if (!others.isEmpty()) {
+            game.fireEvent(new GameEventCardRevealed(cards, others));
         }
     }
 
@@ -2230,11 +2247,18 @@ public class GameAction {
         reveal(cards, zt, cardOwner, dontRevealToOwner, messagePrefix, true);
     }
     public void reveal(CardCollectionView cards, ZoneType zt, Player cardOwner, boolean dontRevealToOwner, String messagePrefix, boolean msgAddSuffix) {
+        final List<Player> others = Lists.newArrayList();
         for (Player p : game.getPlayers()) {
             if (dontRevealToOwner && cardOwner == p) {
                 continue;
             }
             p.getController().reveal(cards, zt, cardOwner, messagePrefix, msgAddSuffix);
+            if (p != cardOwner) {
+                others.add(p);
+            }
+        }
+        if (!others.isEmpty() && !cards.isEmpty()) {
+            game.fireEvent(new GameEventCardRevealed(cards, others));
         }
     }
 

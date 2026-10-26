@@ -64,9 +64,10 @@ public class RecordActionsMacroSystem implements IMacroSystem {
 
     private final List<PlayerAction> actions = Lists.newArrayList();
     private final List<PlayerAction> playbackActions = Lists.newArrayList();
-    private boolean recording;
-    private int repeatIteration;
-    private int repeatIterations;
+    // forge-table: volatile, the table reads these from the opponent's game thread and its network threads.
+    private volatile boolean recording;
+    private volatile int repeatIteration;
+    private volatile int repeatIterations;
     private int playbackRetries;
     private ManaComboAction pendingRecordedManaCombo;
 
@@ -367,6 +368,22 @@ public class RecordActionsMacroSystem implements IMacroSystem {
 
         startPlayback(loops);
     }
+
+    // forge-table: the table asks for the count itself (and, against a person, for the opponent's consent), so it
+    // starts playback without the dialog and reads the progress as numbers.
+    public boolean repeat(final int loops) {
+        if (actions.isEmpty() || recording || loops <= 0) {
+            return false;
+        }
+        startPlayback(loops);
+        return true;
+    }
+
+    public int getRecordedSteps() { return actions.size(); }
+
+    public int getRepeatIteration() { return repeatIteration; }
+
+    public int getRepeatIterations() { return repeatIterations; }
 
     @Override
     public void nextRememberedAction() {
@@ -985,7 +1002,7 @@ public class RecordActionsMacroSystem implements IMacroSystem {
             return false;
         }
 
-        final Card card = findCard(cardView);
+        final Card card = findPlayableCard(cardView, findCard(cardView));
         return card != null && activateAbility(input, action, card);
     }
 
@@ -1020,14 +1037,15 @@ public class RecordActionsMacroSystem implements IMacroSystem {
         }
 
         if (inp instanceof InputPassPriority passPriorityInput) {
-            if (directCard == null) {
+            final Card playable = findPlayableCard(cardView, directCard);
+            if (playable == null) {
                 return false;
             }
-            final List<SpellAbility> abilities = directCard.getAllPossibleAbilities(playerControllerHuman.getPlayer(), true);
+            final List<SpellAbility> abilities = playable.getAllPossibleAbilities(playerControllerHuman.getPlayer(), true);
             if (abilities.size() == 1) {
                 return passPriorityInput.selectAbility(abilities.get(0));
             }
-            return playerControllerHuman.selectCard(directCard.getView(), null, replayTriggerEvent)
+            return playerControllerHuman.selectCard(playable.getView(), null, replayTriggerEvent)
                     && passPriorityInput.getChosenSa() != null;
         }
         if (directCard != null && playerControllerHuman.selectCard(directCard.getView(), null, replayTriggerEvent)) {
@@ -1109,6 +1127,22 @@ public class RecordActionsMacroSystem implements IMacroSystem {
             }
         }
         return null;
+    }
+
+    // forge-table: a loop moves cards between zones, so the recorded card can be in the graveyard while its twin is
+    // the one in hand to cast (Myr Retriever returning Myr Retriever). When the recorded card can't be played now,
+    // play an equivalent one that can.
+    private Card findPlayableCard(final CardView recorded, final Card directCard) {
+        final Player player = playerControllerHuman.getPlayer();
+        if (directCard == null || !directCard.getAllPossibleAbilities(player, true).isEmpty()) {
+            return directCard;
+        }
+        for (final Card card : playerControllerHuman.getGame().getCardsInGame()) {
+            if (card != directCard && isEquivalentCard(recorded, card) && !card.getAllPossibleAbilities(player, true).isEmpty()) {
+                return card;
+            }
+        }
+        return directCard;
     }
 
     private boolean isEquivalentCard(final CardView original, final Card candidate) {

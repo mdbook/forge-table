@@ -1,0 +1,13 @@
+# Assist/Offering-in-hand fixture (AssistOfferingHandPromptTest): Dwarven Lightsmith (Assist, no targets) and Patron of the
+# Kitsune (Fox offering) in hand with a Fox on the battlefield to offer, plus a land so there's an unrelated
+# action to take. Enough mana to cast both outright, so assist and offering are only ever optional.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Dwarven Lightsmith;Patron of the Kitsune;Plains
+humanlibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+humanbattlefield=Island;Island;Island;Plains;Plains;Plains;Plains;Plains;Plains;Arctic Foxes
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Forest

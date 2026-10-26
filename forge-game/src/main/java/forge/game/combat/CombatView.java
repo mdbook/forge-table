@@ -21,10 +21,10 @@ public class CombatView extends TrackableObject {
 
     // Unique negative IDs so TrackableObject.equals() distinguishes instances.
     // Negative IDs avoid tracker registration (only id >= 0 is registered).
-    private static int nextId = -2;
+    private static final java.util.concurrent.atomic.AtomicInteger NEXT_ID = new java.util.concurrent.atomic.AtomicInteger(-2); // forge-table: atomic, N games per JVM
 
     public CombatView(final Tracker tracker) {
-        super(nextId--, tracker);
+        super(NEXT_ID.getAndDecrement(), tracker);
         set(TrackableProperty.AttackersWithDefenders, new ConcurrentHashMap<CardView, GameEntityView>());
         set(TrackableProperty.AttackersWithBlockers, new ConcurrentHashMap<CardView, FCollection<CardView>>());
         set(TrackableProperty.BandsWithDefenders, new ConcurrentHashMap<FCollection<CardView>, GameEntityView>());

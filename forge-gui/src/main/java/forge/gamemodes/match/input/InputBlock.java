@@ -68,6 +68,16 @@ public class InputBlock extends InputSyncronizedBase {
         }
     }
 
+    /** The combat being declared (read-only use: Forge Table's legal-blocks list). */
+    public Combat getCombat() {
+        return combat;
+    }
+
+    /** The player declaring blockers. */
+    public Player getDefender() {
+        return defender;
+    }
+
     /** {@inheritDoc} */
     @Override
     protected final void showMessage() {

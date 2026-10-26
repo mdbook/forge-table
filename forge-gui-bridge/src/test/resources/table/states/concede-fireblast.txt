@@ -1,0 +1,12 @@
+# Concede fixture (ConcedeTest): my first main phase, Fireblast in hand and exactly two Mountains, so only its
+# alternative cost (sacrifice two Mountains) pays for it; the AI has a creature to target.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Fireblast
+humanlibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Mountain;Mountain
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Grizzly Bears;Island

@@ -34,8 +34,7 @@ public class RestartGameEffect extends SpellAbilityEffect {
         String leaveRestriction = sa.getParamOrDefault("RestrictFromValid", "Card");
 
         //Card.resetUniqueNumber();
-        // need this code here, otherwise observables fail
-        forge.game.trigger.Trigger.resetIDs();
+        // forge-table: Trigger.resetIDs() dropped (a global reset mid-game breaks N games per JVM)
         TriggerHandler trigHandler = game.getTriggerHandler();
         trigHandler.clearDelayedTrigger();
         trigHandler.clearPlayerDefinedDelayedTrigger();

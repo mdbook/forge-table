@@ -704,6 +704,11 @@ public class ComputerUtil {
 
         CardLists.sortByPowerAsc(typeList);
         // TODO prefer noncreatures without tap abilities
+        if (sa.isManaAbility() && ai.getController() instanceof PlayerControllerAi pca
+                && pca.preferNonManaSourcesForManaTapCosts()) {
+            // forge-table: stable, so power order is kept within each group
+            typeList.sort(Comparator.comparing((Card c) -> !c.getManaAbilities().isEmpty()));
+        }
 
         final CardCollection tapList = new CardCollection();
 

@@ -43,6 +43,16 @@ public final class DeckUrlLoader {
         return new DeckProxy(deck, localizer.getMessage("lblUrlDeck"), GameType.Constructed, storage);
     }
 
+    /** A deck link's name and decklist text, fetched without saving anything (Forge Table's deck import). */
+    public record FetchedDeck(String name, String importText, String sourceUrl, String providerName) {
+    }
+
+    public static FetchedDeck fetch(final String deckUrl) throws IOException {
+        final String normalizedUrl = normalizeUrl(deckUrl);
+        final DeckUrlProvider.RemoteDeck remoteDeck = getProvider(normalizedUrl).load(normalizedUrl, getStorage());
+        return new FetchedDeck(remoteDeck.name(), remoteDeck.importText(), remoteDeck.sourceUrl(), remoteDeck.providerName());
+    }
+
     public static List<DeckProxy> getUrlDecks() {
         final List<DeckProxy> decks = new ArrayList<>();
         final StorageImmediatelySerialized<Deck> storage = getStorage();

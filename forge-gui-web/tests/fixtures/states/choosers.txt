@@ -1,0 +1,15 @@
+# Choosers fixture (forge-gui-web replay goldens 10–14): my main phase with Preordain (scry 2: the top /
+# bottom lanes), Ponder (put three back in any order: one card lane, then "shuffle?") and Impulse (pick
+# one of four from the zone strip, then the rest to the bottom in any order) in hand and mana for all three.
+# Recorded with tests/scripts/record-choosers.ts.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Preordain;Ponder;Impulse;Island
+humanlibrary=Counterspell;Lightning Bolt;Delver of Secrets;Mental Note;Brainstorm;Gitaxian Probe;Spellstutter Sprite;Island;Island;Island;Island;Island;Island
+humanbattlefield=Island;Island;Island;Island;Island
+aihand=Island;Island
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Island;Island
