@@ -1,12 +1,40 @@
-<h1><img src="docs/images/forge-table-icon.png" width="96" height="96" alt="" align="center"> Forge Table</h1>
+<p align="center">
+  <img src="docs/images/forge-table-icon.png" alt="Forge Table logo" width="112">
+</p>
 
-Forge Table lets you play Magic: The Gathering in a web browser, against the computer or against friends, on a server you run yourself.
+<h1 align="center">Forge Table</h1>
 
-> **Forge Table is alpha software.** It plays real games, but expect bugs and rough edges, and expect settings,
-> saved data and the plugin interface to change between releases without a migration path. Bug reports and feature
-> requests are welcome.
+<p align="center">
+  <b>Magic: The Gathering in your browser, on a server you run yourself.</b><br>
+  Play the computer or your friends, no app to install for anyone but you.
+</p>
 
-## Your first game
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#features">Features</a> ·
+  <a href="docs/forge-table/install.md">Install guide</a> ·
+  <a href="docs/forge-table/configuration.md">Configuration</a> ·
+  <a href="#docs">Docs</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/mdbook/forge-table/actions/workflows/forge-table.yml"><img src="https://github.com/mdbook/forge-table/actions/workflows/forge-table.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--only-blue" alt="License: GPL-3.0-only"></a>
+  <img src="https://img.shields.io/badge/java-17%2B-orange" alt="Java 17+">
+  <img src="https://img.shields.io/badge/docker-compose-2496ED" alt="Runs with Docker Compose">
+</p>
+
+![A game in progress: the opponent attacks, the player's hand along the bottom](docs/images/game.png)
+
+Forge Table is a fork of [Forge](https://github.com/Card-Forge/forge), the open-source Magic: The Gathering rules
+engine, and all the rules and card scripting are theirs. I added a browser client, a lobby with accounts, and
+packaging for hosting it yourself. Forge Table is GPL-3.0 like Forge, and it isn't affiliated with the Forge project
+or with Wizards of the Coast (see [NOTICE](NOTICE)).
+
+> **Alpha software.** It plays real games, but expect bugs and rough edges, and expect settings, saved data and the
+> plugin interface to change between releases without a migration path. Bug reports and feature requests are welcome.
+
+## Quick start
 
 You need **Java 17 or newer**, about **1.5 GB of free RAM per game**, and a browser with WebGL.
 Chromium is tested; other current browsers should work. Nothing to configure for one player on your own computer,
@@ -24,7 +52,7 @@ listens on `127.0.0.1` only and the link it opens carries a random token, so nob
 Stop with Ctrl+C or by closing the terminal. Internet access is only needed for card art, fetched from Scryfall;
 games work offline. To upgrade, unzip the next release and move your `user/` folder into it.
 
-## Docker and playing with friends
+### Docker, for playing with friends
 
 Docker Compose is the recommended way to host the lobby and games for a group. It includes Java, Caddy for HTTPS,
 and Forge Table's own accounts. No separate login provider is needed. This works with Docker Engine or Docker
@@ -54,7 +82,7 @@ No token URL or log filtering is needed. Caddy gets the HTTPS certificate on fir
 open, check `docker compose logs` and your domain's DNS and firewall. Stop with `docker compose down`;
 accounts, decks and saved games stay in the named volume. Do not add `--volumes` unless you mean to delete them.
 
-### Configuration
+## Configuration
 
 The [example settings](forge-gui-bridge/docker/compose-settings.example) has the domain and image name.
 [compose.yaml](forge-gui-bridge/docker/compose.yaml) starts with one game at a time (`FT_MAX_MATCHES=1`);
@@ -66,26 +94,38 @@ guest links or admin options, see [Hosting for a group](docs/forge-table/hosting
 The optional [compose.oidc.yaml](forge-gui-bridge/docker/compose.oidc.yaml) is for an existing login provider;
 [compose.solo.yaml](forge-gui-bridge/docker/compose.solo.yaml) is a Linux-only, local token-mode alternative.
 
-## The table
+## Features
 
-![A game in progress: the opponent attacks, the player's hand along the bottom](docs/images/game.png)
+**Play in any modern browser.** Pick a deck and an opponent from the bundled ones, or import your own.
+
+**Play friends, not just the computer.** The lobby lets people sign in with accounts you create, open a table and
+start a game. Several games can run at once, each in its own process.
 
 ![The lobby: two games in progress, one starting, an open table from a friend](docs/images/lobby.png)
 
-Forge Table is its own product, built on the [Forge](https://github.com/Card-Forge/forge) rules engine.
-It isn't affiliated with the Forge project or with Wizards of the Coast (see [NOTICE](NOTICE)).
+**Your data stays with you.** Accounts, decks and saved games live on your server. Card art is fetched from Scryfall
+only if you leave it on.
 
-## Documentation
+**Built on Forge.** The rules, the card database and the standard AI opponents come from Forge, and rules bugs get
+fixed there. An optional neural AI opponent, Lyra, plugs in through a plugin interface (see the
+[AI plugin page](docs/forge-table/ai-plugin.md)).
 
-Everything else is in [docs/](docs/README.md): installing (release zip, Docker, from source), every setting, hosting,
-card art, the Lyra neural opponent and the plugin hook behind her, building and testing, the architecture and a FAQ.
+## Docs
+
+- [Install](docs/forge-table/install.md): release zip, Docker, or from source.
+- [Configuration reference](docs/forge-table/configuration.md): every flag, `FT_*` variable and default.
+- [Hosting for a group](docs/forge-table/hosting.md): accounts, single sign-on, guest links, your own proxy.
+- [Card art](docs/forge-table/card-art.md): where pictures come from and how to turn them off.
+- [Neural AI plugin](docs/forge-table/ai-plugin.md): the Lyra opponent and the plugin hook behind her.
+- [Building and testing](docs/forge-table/building.md) and [Architecture](docs/forge-table/architecture.md).
+- [FAQ and troubleshooting](docs/forge-table/faq.md).
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Bugs in how a card's rules work belong to Forge itself, at
 [Card-Forge/forge](https://github.com/Card-Forge/forge/issues).
 
-## Licence
+## License
 
 GPL-3.0-only ([LICENSE](LICENSE)). The Forge engine it's built on is GPL-3.0-or-later, and its files keep their
 notices. Card names and rules text are Wizards of the Coast's; Forge Table is unofficial Fan Content (see [NOTICE](NOTICE)). The card frame uses open (OFL) lookalike
