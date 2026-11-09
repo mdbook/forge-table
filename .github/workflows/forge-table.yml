@@ -114,7 +114,7 @@ jobs:
         env:
           LYRA_REPO: mdbook/lyra-forge-plugin
           LYRA_TAG: v0.1.0-alpha.1
-          LYRA_COMMIT: ""
+          LYRA_COMMIT: "b39b86f78cd9b736853910d8317bdcc6b7ae6818"
         run: |
           [ -n "$LYRA_COMMIT" ] || { echo "LYRA_COMMIT is not pinned" >&2; exit 1; }
           git clone --depth 1 --branch "$LYRA_TAG" "https://github.com/$LYRA_REPO" "$RUNNER_TEMP/lyra"
@@ -122,13 +122,13 @@ jobs:
       - name: Lyra model
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release download v0.1.0-alpha.1 -R mdbook/lyra-forge-plugin -p lyra-model-v58625.zip -D "$RUNNER_TEMP/lyra"
+        run: gh release download v0.1.0-alpha.1 -R mdbook/lyra-forge-plugin -p lyra-model-v111994.zip -D "$RUNNER_TEMP/lyra"
       - name: Lyra overlay
         working-directory: ${{ runner.temp }}/lyra
         run: |
-          echo "ff0f3d452a4a237f19cbb8fc58ad238300ed83553531c65caaadcf7a07a623dd  lyra-model-v58625.zip" | sha256sum -c -
+          echo "27f35422949fa040fb9bfeec2ec1709bed6f7e24f3001555ad3196e13be3e179  lyra-model-v111994.zip" | sha256sum -c -
           mvn $MAVEN_CLI package
-          scripts/overlay.sh --model lyra-model-v58625.zip --out "$RUNNER_TEMP/lyra-overlay.zip"
+          scripts/overlay.sh --model lyra-model-v111994.zip --out "$RUNNER_TEMP/lyra-overlay.zip"
       - run: forge-gui-bridge/package.sh --smoke --out "$RUNNER_TEMP/dist" --overlay "$RUNNER_TEMP/lyra-overlay.zip"
         env:
           MVN_FLAGS: -ntp -Dmaven.javadoc.skip=true
