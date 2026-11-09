@@ -1,0 +1,5 @@
+# Copy this file to .env next to compose.yaml. No passwords or login provider are needed here.
+# A public DNS name pointing at this server, with ports 80 and 443 reachable for Caddy's HTTPS certificates.
+FT_DOMAIN=table.example.com
+# The published image. Pin it to a commit sha instead of :edge if you want a stable, repeatable deploy.
+FORGE_TABLE_IMAGE=ghcr.io/mdbook/forge-table:edge

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Forge Table release zip from this repo alone: the server (forge-gui-bridge and its classpath), the web client, Forge's
 # res/ and a starter deck set, no neural AI. One top folder forge-table-<sha8>/ with lib/ res/ web/ decks/ launch.sh
-# launch.cmd version.json README.md LICENSE (+ NOTICE): unzip and run launch.sh, or install it on a server with
-# deploy/forge-table-deploy.sh (it takes this flat layout).
+# launch.cmd launch-router.sh launch-router.cmd version.json README.md LICENSE (+ NOTICE): unzip and run launch.sh,
+# or install it on a server with deploy/forge-table-deploy.sh (it takes this flat layout).
 #
 # Usage: forge-gui-bridge/package.sh [--out DIR] [--no-build] [--smoke] [--overlay ZIP]
 #   --out DIR    where the zip goes (default target/dist)
@@ -92,6 +92,9 @@ printf 'userDir=user/forge/\ncacheDir=user/cache/\n' >"$S/forge.profile.properti
 cp "$HERE/dist/launch.sh" "$S/launch.sh"
 chmod +x "$S/launch.sh"
 sed 's/$/\r/' "$HERE/dist/launch.cmd" >"$S/launch.cmd"
+cp "$HERE/dist/launch-router.sh" "$S/launch-router.sh"
+chmod +x "$S/launch-router.sh"
+sed 's/$/\r/' "$HERE/dist/launch-router.cmd" >"$S/launch-router.cmd"
 cp "$REPO/LICENSE" "$S/LICENSE"
 [ -f "$REPO/NOTICE" ] && cp "$REPO/NOTICE" "$S/NOTICE"
 cp "$REPO/README.md" "$S/README.md"

@@ -1,0 +1,8 @@
+{$FT_DOMAIN} {
+    @private path /healthz /admin/*
+    respond @private 404
+    reverse_proxy forge-table:8790 {
+        # Overwrite anything the browser sent; password try limits need the real client address.
+        header_up X-Real-IP {remote_host}
+    }
+}

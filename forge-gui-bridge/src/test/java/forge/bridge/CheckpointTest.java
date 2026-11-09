@@ -62,6 +62,19 @@ public class CheckpointTest {
         }
     }
 
+    /**
+     * The beginning of combat is a step Checkpointer saves at, and a game resumed there has no Combat yet (it is made
+     * as the step begins, and the resume skips that): the step after it must still find one, not throw.
+     */
+    @Test
+    public void aGameResumedAtTheStartOfCombatGoesOn() throws Exception {
+        try (AutoPassTest.Game g = new AutoPassTest.Game("resume-combat-begin.txt", false)) {
+            // No stop of mine at the beginning of combat or the empty steps after it: the first one is the second main phase.
+            g.awaitPriority();
+            assertEquals(g.phase(), "MAIN2");
+        }
+    }
+
     /** A checkpoint that can't be resumed is moved aside (so the game isn't paused with it again) and the start screen shows. */
     @Test
     public void anUnreadableCheckpointIsMovedAside() throws Exception {

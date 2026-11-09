@@ -1,8 +1,11 @@
-# Forge Table multi-game server (router mode) from a release zip. Build the zip, then the image:
+# Forge Table multi-game server (router mode) from a release zip. ghcr.io/mdbook/forge-table:edge is built this way
+# by .github/workflows/forge-table.yml on every push to main; most users should pull that instead of building. To
+# build your own from a zip:
 #   forge-gui-bridge/package.sh
 #   docker build -t forge-table -f forge-gui-bridge/docker/Dockerfile --build-arg ZIP=target/dist/forge-table-<sha8>.zip forge-gui-bridge
-# Run it behind an authenticating reverse proxy (compose.yaml), or for yourself alone on the host's loopback:
-#   docker run --network host -e FT_BIND=127.0.0.1 -v forge-table:/data forge-table
+# amd64 only for now; Docker Desktop on Apple Silicon runs it under Rosetta.
+# The default compose.yaml uses Forge Table accounts and Caddy for HTTPS. For a local, Linux-only token-mode run:
+#   docker run --network host -e FT_BIND=127.0.0.1 -v forge-table:/data ghcr.io/mdbook/forge-table:edge
 # and open the link it prints. Settings are FT_<FLAG> variables (docs/forge-table/RUNBOOK.md); flags after the image
 # name go to the server too.
 FROM busybox:stable AS unpack

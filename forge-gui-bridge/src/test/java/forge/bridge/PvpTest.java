@@ -433,12 +433,14 @@ public class PvpTest {
             a.await(0, m -> PvpClient.is(m, "welcome", null), 30);
             b.await(0, m -> PvpClient.is(m, "welcome", null), 30);
             start(a, b);
-            awaitTurn(r, 2);
-            r.app.flushCheckpoint();
+            // The live turn advances before safe priority queues a checkpoint; flush only waits for queued writes.
+            waitFor(() -> Files.isRegularFile(saved) && Checkpointer.read(saved).get("turn").getAsInt() >= 2,
+                    150, "no persisted checkpoint reached turn 2");
             final JsonObject c = Checkpointer.read(saved);
+            assertTrue(c.get("turn").getAsInt() >= 2, "resume from a persisted turn 2 or later");
             assertTrue(c.get("pvp").getAsBoolean());
             assertEquals(strings(c.get("names")), List.of("alice", "bob"));
-            Files.copy(saved, again);
+            Checkpointer.write(again, Outboxes.toJson(c));
             Files.copy(Checkpointer.deckFile(saved, 0), Checkpointer.deckFile(again, 0));
             Files.copy(Checkpointer.deckFile(saved, 1), Checkpointer.deckFile(again, 1));
             a.act("concede");

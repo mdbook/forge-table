@@ -70,6 +70,21 @@ declare global {
   }
 }
 
+/**
+ * Park the pointer off every choice and wait until the shot is the parked state, then redraw the table.
+ *
+ * The tiles in this test lift on `:hover`, and the docked preview is React state set from each tile's
+ * onMouseEnter/onMouseLeave. A shot taken straight after a click (which leaves the pointer on the clicked tile) can
+ * therefore catch the hover the click left behind: the lift, and the preview showing the clicked card. The browser
+ * clears `:hover` synchronously, but the React preview state flushes a frame later, so wait for both before the shot.
+ */
+async function parkPointer(page: Page): Promise<void> {
+  await page.mouse.move(4, 4);
+  await page.waitForFunction(() => document.querySelectorAll('.carousel-item:hover, .lane-face:hover').length === 0);
+  await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+  await page.evaluate(() => window.__table.redraw());
+}
+
 const SHOTS: Array<{ name: string; title: string; reach: (page: Page) => Promise<unknown> }> = [
   { name: '01-mulligan', title: 'Start / mulligan', reach: (p) => p.evaluate(() => window.__table.waitForPrompt('mulligan')) },
   { name: '02-opening-hand', title: 'Opening hand', reach: (p) => p.evaluate(() => window.__table.waitForPrompt('priority')) },
@@ -332,7 +347,9 @@ test('replay: damage assignment, divided damage (O7) and surveil lanes', async (
   await page.waitForFunction(() => !!window.__table);
   const askIs = (id: string) => page.evaluate((qid) => window.__table.runUntil((s) => s.asks.some((a: { id: string }) => a.id === qid), { settle: true }), id);
   const amounts = () => page.locator('[data-testid^="split-amount-"]').allTextContents();
-  await page.mouse.move(4, 4);
+  // The split tiles and the lane cards lift (and the preview follows the pointer) on hover: the golden is the parked
+  // state, so a shot parks the pointer through parkPointer() and redraws first.
+  const park = () => parkPointer(page);
 
   // Combat: starts at Auto (2 to each Bears, the other 2 trample over).
   await askIs('q1');
@@ -342,6 +359,7 @@ test('replay: damage assignment, divided damage (O7) and surveil lanes', async (
   // Each tile says what it needs; the blockers have lethal, the player tramples over.
   await expect(page.getByTestId('split-hint-0')).toHaveText('lethal ✓');
   await expect(page.getByTestId('split-hint-2')).toHaveText('tramples over');
+  await park();
   await expect(page).toHaveScreenshot(`${SPLIT_SHOTS[0]!.name}.png`);
   // Taking 1 off a blocker drops what the player held; the player can't take damage again until it's lethal.
   await page.getByTestId('split-less-0').click();
@@ -367,7 +385,7 @@ test('replay: damage assignment, divided damage (O7) and surveil lanes', async (
   await expect(page.getByTestId('ask-done')).toBeDisabled();
   await page.getByTestId('split-item-0').locator('.split-target').click();
   await expect(page.getByTestId('ask-done')).toBeEnabled();
-  await page.mouse.move(4, 4);
+  await park();
   await expect(page).toHaveScreenshot(`${SPLIT_SHOTS[1]!.name}.png`);
   await page.getByTestId('ask-done').click();
 
@@ -380,7 +398,7 @@ test('replay: damage assignment, divided damage (O7) and surveil lanes', async (
   await page.getByTestId('ask-item-0').click();
   expect(await laneIds('graveyard')).toEqual(['ask-item-0']);
   await expect(page.getByTestId('arrange-count')).toHaveText('1 on top · 1 in the graveyard · click a card to switch');
-  await page.mouse.move(4, 4);
+  await park();
   await expect(page).toHaveScreenshot(`${SPLIT_SHOTS[2]!.name}.png`);
 
   await page.evaluate(() => window.__table.waitForGameOver());

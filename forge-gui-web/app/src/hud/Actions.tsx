@@ -199,9 +199,13 @@ export function cardSizeKey(e: Pick<KeyboardEvent, 'key' | 'code' | 'ctrlKey' | 
 export function useKeyboard(): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) return;
       const ui = useUi.getState();
+      // A focused confirm switch keeps native Space, while Enter/Esc still answer the question.
+      const confirmSwitch = target instanceof HTMLInputElement && target.type === 'checkbox'
+        && framedConfirm(ui) && (e.key === 'Enter' || e.key === 'Escape');
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') && !confirmSwitch) return;
       const size = ui.inMatch ? cardSizeKey(e, ui.cardSize) : null;
       if (size) {
         e.preventDefault();

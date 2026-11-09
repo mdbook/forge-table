@@ -15,6 +15,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.resolve(here, '../output/live');
 const TARGET_TURN = 3;
 const STUCK_MS = 45_000;
+/** Overlay-fallback answers allowed on one prompt before it is called stuck (a few picks may be needed to clear it). */
+const MAX_OVERLAY_TRIES = 3;
 
 type Spec = { label: string; enabled: boolean; action: string | null } | null;
 type Live = {
@@ -53,10 +55,48 @@ async function answerAsk(page: Page): Promise<string> {
     await none.click();
     return 'none';
   }
-  const first = page.locator('[data-testid^="ask-item-"]:not([disabled]):not([aria-disabled="true"])').first();
-  if (await first.isVisible()) {
+  const first = page.locator('[data-testid^="ask-item-"]:visible:not([disabled]):not([aria-disabled="true"])').first();
+  if ((await first.isVisible()) && (await first.isEnabled())) {
     await first.click();
     return 'item';
+  }
+  return 'nothing';
+}
+
+/**
+ * The last-resort answer for a prompt the HUD buttons can't clear: a framed yes/no, a mana orb, a number picker or
+ * any ask rendered over the table rather than in the prompt bar. Returns what it pressed, or 'nothing'.
+ *
+ * Every control is re-queried fresh on each call and must be currently visible AND enabled. An ask answered earlier
+ * stays in the DOM (dimmed, pointer-events: none) until the engine sends the next prompt, and a hidden or disabled
+ * tile would swallow the click; pressing one would still count as an answer and burn the retries down to a false
+ * "stuck" verdict, so only a live control is pressed.
+ */
+async function answerOverlay(page: Page): Promise<string> {
+  const yes = page.getByTestId('confirm-yes');
+  if ((await yes.isVisible()) && (await yes.isEnabled())) {
+    await yes.click();
+    return 'yes';
+  }
+  const mana = page.locator('[data-testid^="mana-option-"]:visible:not([disabled])').first();
+  if ((await mana.isVisible()) && (await mana.isEnabled())) {
+    await mana.click();
+    return 'mana';
+  }
+  const done = page.locator('[data-testid="ask-done"]:visible:not([disabled])').first();
+  if ((await done.isVisible()) && (await done.isEnabled())) {
+    await done.click();
+    return 'done';
+  }
+  const item = page.locator('[data-testid^="ask-item-"]:visible:not([disabled]):not([aria-disabled="true"])').first();
+  if ((await item.isVisible()) && (await item.isEnabled())) {
+    await item.click();
+    return 'item';
+  }
+  const none = page.locator('[data-testid="ask-none"]:visible:not([disabled])').first();
+  if ((await none.isVisible()) && (await none.isEnabled())) {
+    await none.click();
+    return 'none';
   }
   return 'nothing';
 }
@@ -84,18 +124,21 @@ test('live: keep, then press primary through prompts to turn 3 (or game over)', 
   let pidSeenAt = Date.now();
   let lastPid = -1;
   let stuck = 0;
-  let prompts = 0;
-  let reached = false;
+  /** Prompts the loop answered (an act per meaningful prompt): monotonic, unlike the old distinct-pid count. */
+  let answers = 0;
+  /** How many times the overlay fallback has fired on the current prompt (a bounded retry before a real stuck verdict). */
+  let stuckTries = 0;
+  let reachedTurn = false;
   const log: string[] = [];
   while (Date.now() < deadline) {
     const s = await t.state();
     if (s.gameOver) {
-      reached = true;
+      reachedTurn = s.turn >= TARGET_TURN;
       log.push(`game over (won=${s.gameOver.won}) at turn ${s.turn}`);
       break;
     }
     if (s.turn >= TARGET_TURN && s.prompt && s.prompt.kind !== 'waiting' && s.asks.length === 0) {
-      reached = true;
+      reachedTurn = true;
       log.push(`reached turn ${s.turn} (${s.phase}, ${s.playerTurn === s.viewer ? 'my' : 'their'} turn)`);
       await page.screenshot({ path: path.join(OUT, `${String(++shot).padStart(2, '0')}-turn${s.turn}-reached.png`) });
       break;
@@ -103,6 +146,8 @@ test('live: keep, then press primary through prompts to turn 3 (or game over)', 
     if (s.asks.length > 0) {
       await page.screenshot({ path: path.join(OUT, `${String(++shot).padStart(2, '0')}-ask-${s.asks[0]!.kind}.png`) });
       log.push(`ask ${s.asks[0]!.kind} → ${await answerAsk(page)}`);
+      answers++;
+      stuckTries = 0;
       await page.waitForTimeout(250);
       continue;
     }
@@ -114,12 +159,23 @@ test('live: keep, then press primary through prompts to turn 3 (or game over)', 
     if (p.pid !== lastPid) {
       lastPid = p.pid;
       pidSeenAt = Date.now();
-      prompts++;
+      stuckTries = 0;
       await page.screenshot({ path: path.join(OUT, `${String(++shot).padStart(2, '0')}-t${s.turn}-${p.kind}.png`) });
     } else if (Date.now() - pidSeenAt > STUCK_MS) {
-      stuck++;
-      log.push(`STUCK on pid ${p.pid} (${p.kind})`);
-      break;
+      // The HUD buttons haven't moved this prompt in STUCK_MS: it may be one the prompt bar cannot clear (a framed
+      // yes/no, a mana orb, a number picker, an ask rendered over the table). Answer that before calling it stuck.
+      const over = stuckTries < MAX_OVERLAY_TRIES ? await answerOverlay(page) : 'nothing';
+      if (over === 'nothing') {
+        stuck++;
+        log.push(`STUCK on pid ${p.pid} (${p.kind})`);
+        break;
+      }
+      stuckTries++;
+      log.push(`t${s.turn} ${p.kind}: overlay ${over} (try ${stuckTries})`);
+      answers++;
+      pidSeenAt = Date.now();
+      await page.waitForTimeout(150);
+      continue;
     }
     const b = await t.buttons();
     const key = `${p.pid}|${b.primary.label}|${b.primary.enabled}|${p.selectable.length}`;
@@ -144,6 +200,7 @@ test('live: keep, then press primary through prompts to turn 3 (or game over)', 
       await page.waitForTimeout(100);
       continue;
     }
+    answers++;
     actedKey = key;
     await page.waitForTimeout(120);
   }
@@ -152,8 +209,21 @@ test('live: keep, then press primary through prompts to turn 3 (or game over)', 
   await page.screenshot({ path: path.join(OUT, `${String(++shot).padStart(2, '0')}-final.png`) });
 
   expect(stuck, 'stuck prompts').toBe(0);
-  expect(reached, `reached turn ${TARGET_TURN} or game over`).toBe(true);
-  expect(prompts).toBeGreaterThan(2);
+  // The loop must actually drive the game to the target turn, not just end early; job 8590's flake was here.
+  //
+  // The old `expect(prompts).toBeGreaterThan(2)` counted distinct pids, but Forge reuses one pid across the steps of a
+  // turn while the HUD primary's label and the selectable set change under it, so the loop drives a whole turn
+  // re-pressing one pid. On a fast auto-skip run turn 3 arrived having seen two pids and the assertion failed although
+  // the game was playing perfectly. A bare `answers >= TARGET_TURN` (ops' example) would re-flake the other way:
+  // auto-skip is on by default and passes any window where the viewer has nothing to do, so a kept 7-card hand with no
+  // land (about 7% of opening hands in this deck) auto-skips the viewer's whole turn with no answer, and turn 3 can
+  // arrive on fewer than TARGET_TURN answers. Gating on the turn reached is the meaningful bound: reachedTurn is set
+  // when the game reaches TARGET_TURN (the turn branch, above) or ends by game over at that turn or later. In this
+  // matchup (mono-red madness vs mono-blue faeries, Default AI) neither side can close 20 life by turn 3, so a game
+  // over before the target turn is a real anomaly, not a flake. `answers > 0` stays as a cheap secondary guard (the
+  // opening keep is always an answered prompt); it counts answered acts, which unlike the old pid count cannot read low.
+  expect(reachedTurn, `reached turn ${TARGET_TURN}`).toBe(true);
+  expect(answers, 'prompts answered').toBeGreaterThan(0);
   expect(gate.errors).toEqual([]);
 
   const video = page.video();

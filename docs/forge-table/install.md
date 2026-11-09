@@ -8,7 +8,7 @@ of two modes:
 - Router, with `--router` as the first argument. A lobby and many games at once, each in its own JVM, for one person
   or a whole group. The Docker image and the reference systemd unit start this.
 
-Every way needs Java 17 or newer. The project builds and tests on 21.
+The zip and source installs need Java 17 or newer. Docker includes Java. The project builds and tests on 21.
 
 ## Release zip
 
@@ -19,6 +19,7 @@ zip holds one folder:
 | Path | What it is |
 |---|---|
 | `launch.sh`, `launch.cmd` | Start a single game and open the browser. |
+| `launch-router.sh`, `launch-router.cmd` | Start the local lobby; open the token URL it prints. |
 | `lib/` | The server and every library it needs (`-cp "lib/*"`). |
 | `res/` | Forge's card database, AI profiles, editions and formats. |
 | `web/` | The browser client. |
@@ -38,33 +39,69 @@ To upgrade, unzip the new release next to the old one and move the old `user/` f
 
 ### The router from the zip
 
-The launcher only starts single games. For the lobby, start Java yourself from inside the unzipped folder:
+For the lobby, run this from inside the unzipped folder (Linux, macOS):
 
 ```sh
-java -Xmx1536m -Xss8m \
-  --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED \
-  --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.text=ALL-UNNAMED \
-  --add-opens java.desktop/javax.imageio.spi=ALL-UNNAMED \
-  -cp "lib/*" forge.bridge.Main --router --port 8790 --data user/router \
-  --assets . --web web --decks decks
+./launch-router.sh
 ```
 
-It prints `FORGE_TABLE_READY {"mode":"router",…,"url":"http://127.0.0.1:8790/#t=…"}` within a second. Open that
-`url`. `--router` has to be the first argument. Each game inherits the router's `-Xmx`, `-Xss`, `--add-opens` and
-`-D` options, so `-Xmx1536m` here caps every game's heap too.
+On Windows, run `launch-router.cmd`. These launchers are included in new builds; an older zip needs upgrading.
+Open the `url` in the `FORGE_TABLE_READY` line. The router listens on loopback only, on port 8790, and saves to
+`user/router/`. No accounts or config are needed for this local mode. Other flags go after the launcher, for
+example `./launch-router.sh --port 8791`. Each game inherits the launcher's `-Xmx1536m` and other JVM options.
 
 ## Docker
 
-The [Dockerfile](../../forge-gui-bridge/docker/Dockerfile) packs a release zip into an image that runs the router,
-with its data in the `/data` volume. No image is published, so you build it. You need a checkout of this repository
-for the Dockerfile, and a release zip, either downloaded or built with `forge-gui-bridge/package.sh`.
+Docker Compose is the recommended group setup. The default stack uses Forge Table's own accounts and Caddy for
+HTTPS, not a separate login provider. It works with Docker Engine and Docker Desktop without host networking.
+
+The image is published at `ghcr.io/mdbook/forge-table:edge` (built by CI from the latest `main`; a `v*` tag will get
+its own tag once one exists). You need Docker with Compose, a public domain pointing at this server, and inbound
+TCP ports 80 and 443 available. If another web server already uses them, use your existing TLS proxy as described
+in [Hosting for a group](hosting.md).
+
+### Start with your own accounts
+
+1. Get `compose.yaml`, `Caddyfile` and `compose-settings.example` from
+   [forge-gui-bridge/docker/](../../forge-gui-bridge/docker/) (clone the repo, or download those three files).
+   Copy `compose-settings.example` to `.env` next to `compose.yaml`, and change `FT_DOMAIN=table.example.com` to
+   your server's DNS name, without `https://` or a path.
+2. From that directory, run `docker compose up -d`. Compose pulls the published image. Caddy gets and renews the
+   HTTPS certificate. Only Caddy publishes ports; Forge Table stays on the Docker network. The first start can take
+   longer while images download and the certificate is issued. Check `docker compose logs` if it does not come up.
+3. Create your first admin account:
+   ```sh
+   docker compose exec forge-table java -cp "lib/*" forge.bridge.Main --users add ana --admin --data /data
+   ```
+   It asks for a password of 10 to 256 characters. Open `https://<your-domain>/` and sign in. Repeat the command
+   without `--admin`, with a different login, for each friend. There is no public sign-up.
+
+The settings example and [compose.yaml](../../forge-gui-bridge/docker/compose.yaml) are the complete default
+configuration: `FT_AUTH=users`, a real-client-address header supplied by Caddy, secure cookies, and one game at a
+time. Increase `FT_MAX_MATCHES` only if you have about 1.5 GB of free RAM for each extra game, plus server overhead.
+Keep unrelated containers off the `table` network, and never publish the router's ports 8790 or 8799.
+
+Stop with `docker compose down`. That keeps accounts, decks, results and saved games in `forge-table-data`;
+`docker compose down --volumes` deletes them. Back up the volume before upgrading. To upgrade, pull the new image
+and run `docker compose up -d --pull always --force-recreate`. Do not move or rename the Compose directory without
+keeping its project name (`-p`), or Compose will use different named volumes.
+
+### Building your own image
+
+To build from a release zip instead of pulling the published image (for example, to pin an exact build or add a
+local patch):
 
 ```sh
-mkdir -p forge-gui-bridge/target/dist
-cp forge-table-<build>.zip forge-gui-bridge/target/dist/
 docker build -t forge-table -f forge-gui-bridge/docker/Dockerfile \
-  --build-arg ZIP=target/dist/forge-table-<build>.zip forge-gui-bridge
+  --build-arg ZIP=target/dist/forge-table-<sha8>.zip forge-gui-bridge
 ```
+
+Run that from a checkout of the Forge Table branch with the zip already at the given path (either downloaded from
+the [Releases page](https://github.com/mdbook/forge-table/releases) or built with
+`forge-gui-bridge/package.sh`, see [build from source](#from-source)). Then set `FORGE_TABLE_IMAGE=forge-table` in
+your `.env` instead of the published image.
+
+### Other Docker setups
 
 Settings are `FT_*` environment variables (`-e FT_MAX_MATCHES=4`), and arguments after the image name are passed to
 the server as flags. The image sets `FT_PORT=8790`, `FT_ADMIN_PORT=8799` and `FT_MTGAI_UPLOAD=off`, runs Java with
@@ -72,25 +109,23 @@ the server as flags. The image sets `FT_PORT=8790`, `FT_ADMIN_PORT=8799` and `FT
 
 The router refuses to listen on `0.0.0.0`, on purpose. When `FT_BIND` is unset the entrypoint uses the container's
 own address, which is private, and a private address is only allowed together with a sign-in mode (`FT_AUTH` set to
-`users`, `oidc` or `header`). So there are two ways to run the image.
+`users`, `oidc` or `header`). The default Compose stack supplies that sign-in mode for you.
 
 For yourself alone, on the host's loopback (Linux):
 
 ```sh
-docker run -d --name forge-table --network host -e FT_BIND=127.0.0.1 -v forge-table:/data forge-table
+docker run -d --name forge-table --network host -e FT_BIND=127.0.0.1 -v forge-table:/data ghcr.io/mdbook/forge-table:edge
 docker logs forge-table 2>&1 | grep FORGE_TABLE_READY
 ```
 
 or the same thing with [compose.solo.yaml](../../forge-gui-bridge/docker/compose.solo.yaml):
 `docker compose -f compose.solo.yaml up -d`.
 
-For a group, start from [compose.yaml](../../forge-gui-bridge/docker/compose.yaml): a complete stack with
-oauth2-proxy signing people in. It puts Forge Table on a network shared only with the proxy and publishes no port.
-To let Forge Table sign people in itself instead, keep the private network, swap oauth2-proxy for your usual TLS
-proxy and set `FT_AUTH=users` or `oidc`. Read [Hosting for a group](hosting.md) before you do either.
-
-To upgrade, build a new image from the new zip and recreate the container. Imported decks, results and the card-art
-cache live in the volume.
+For an existing login provider, [compose.oidc.yaml](../../forge-gui-bridge/docker/compose.oidc.yaml) keeps the
+oauth2-proxy setup. Use `docker compose -f compose.oidc.yaml up -d` after configuring its provider and secret file,
+and put your TLS terminator in front. This was previously `compose.yaml`: existing installations should use this
+file to keep their login setup, not switch to the new default by accident. Read [Hosting for a group](hosting.md)
+before changing a running server's sign-in mode.
 
 ## From source
 

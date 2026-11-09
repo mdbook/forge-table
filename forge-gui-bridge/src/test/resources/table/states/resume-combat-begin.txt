@@ -1,0 +1,12 @@
+# Resume fixture (CheckpointTest): a game saved at priority in the beginning of combat, one of the steps Checkpointer
+# saves at. Nothing is attacking; the point is that the step after it has a Combat to work with.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=COMBAT_BEGIN
+humanhand=Mountain
+humanlibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+humanbattlefield=Mountain;Mountain
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Island;Island

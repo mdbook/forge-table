@@ -662,11 +662,8 @@ public final class BridgeApp implements BridgeGuiBase.DialogRouter {
         final RegisteredPlayer human = registered(format, mine);
         human.setPlayer(GamePlayerUtil.getGuiPlayer());
         final RegisteredPlayer opp = registered(format, theirs);
-        if (stateLines != null) {
-            // A board fixture replaces the opening hands, as puzzles do: no mulligan, state applied at turn 1.
-            human.setStartingHand(0);
-            opp.setStartingHand(0);
-        }
+        // A board fixture replaces the opening hands, as puzzles do: no mulligan, state applied at turn 1.
+        final Map<RegisteredPlayer, Integer> handSizes = stateLines != null ? withoutOpeningHands(List.of(human, opp)) : null;
         // Constructing the lobby player loads the Neural model when that profile is chosen (bridge-svc).
         opp.setPlayer(GamePlayerUtil.createAiPlayer(theirs.getName(), ai));
 
@@ -702,11 +699,7 @@ public final class BridgeApp implements BridgeGuiBase.DialogRouter {
         }
         final HostedMatch hm = new HostedMatch();
         if (stateLines != null) {
-            hm.setStartGameHook(() -> {
-                final GameState gs = new GameState();
-                gs.parse(stateLines);
-                gs.applyToGame(hm.getGame());
-            });
+            hm.setStartGameHook(() -> applyBoard(hm.getGame(), stateLines, handSizes));
         }
         t.setOnMatchEnded(() -> {
             if (me.table == t) {
@@ -732,6 +725,40 @@ public final class BridgeApp implements BridgeGuiBase.DialogRouter {
             res.addProperty("format", format);
         }
         return res;
+    }
+
+    /**
+     * Registers {@code players} to be dealt no opening hand (a board state replaces it, as puzzles do) and answers each
+     * one's real hand size, for {@link #applyBoard} to put back. Forge keeps one number per player for both the
+     * opening draw and the maximum hand size ({@code Game} copies {@code RegisteredPlayer.startingHand} into both, and a
+     * static effect ending resets the maximum to it), so zeroing it alone left a board or resumed game with a maximum
+     * hand size of 0: cleanup made the player discard the whole hand.
+     */
+    static Map<RegisteredPlayer, Integer> withoutOpeningHands(final List<RegisteredPlayer> players) {
+        final Map<RegisteredPlayer, Integer> sizes = new IdentityHashMap<>();
+        for (final RegisteredPlayer rp : players) {
+            sizes.put(rp, rp.getStartingHand());
+            rp.setStartingHand(0);
+        }
+        return sizes;
+    }
+
+    /**
+     * The start hook of a game from a board state: once the (empty) opening hands are dealt, puts back each player's
+     * real hand size ({@link #withoutOpeningHands}) and lays the board on the game.
+     */
+    static void applyBoard(final forge.game.Game game, final List<String> stateLines, final Map<RegisteredPlayer, Integer> handSizes) {
+        for (final forge.game.player.Player p : game.getRegisteredPlayers()) {
+            final Integer size = handSizes.get(p.getRegisteredPlayer());
+            if (size == null) {
+                throw new IllegalStateException("no registered hand size for " + p);
+            }
+            p.setStartingHandSize(size);
+            p.setMaxHandSize(size);
+        }
+        final GameState gs = new GameState();
+        gs.parse(stateLines);
+        gs.applyToGame(game);
     }
 
     /**
@@ -1232,9 +1259,6 @@ public final class BridgeApp implements BridgeGuiBase.DialogRouter {
         for (final Seat s : seats) {
             final RegisteredPlayer rp = registered(options.format, s.deck);
             rp.setPlayer(new LobbyPlayerHuman(nameOf(s)));
-            if (stateLines != null) {
-                rp.setStartingHand(0); // the board replaces the opening hands
-            }
             final TableSession t = new TableSession(base);
             t.setOnGameFinished(this::gameFinished);
             if (checkpointer != null) {
@@ -1261,11 +1285,9 @@ public final class BridgeApp implements BridgeGuiBase.DialogRouter {
         rules.setWarnAboutAICards(false);
         final HostedMatch hm = new HostedMatch();
         if (stateLines != null) {
-            hm.setStartGameHook(() -> {
-                final GameState gs = new GameState();
-                gs.parse(stateLines);
-                gs.applyToGame(hm.getGame());
-            });
+            // The board replaces the opening hands.
+            final Map<RegisteredPlayer, Integer> handSizes = withoutOpeningHands(List.of(players));
+            hm.setStartGameHook(() -> applyBoard(hm.getGame(), stateLines, handSizes));
         }
         if (checkpointer != null) {
             final JsonObject settings = new JsonObject();

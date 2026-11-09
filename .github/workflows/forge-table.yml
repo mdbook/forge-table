@@ -8,11 +8,15 @@
 #            model (checked against a pinned sha256) and makes the plugin overlay; then
 #            forge-gui-bridge/package.sh builds the release zip with it, starts it once (--smoke) and attaches zip +
 #            .sha256 to the tag's GitHub release as a pre-release while the version says alpha or beta.
+#   image    on a push to main, once the three pass: builds the zip with no neural AI overlay (package.sh needs
+#            none of Lyra's inputs), publishes ghcr.io/mdbook/forge-table:edge and :<short-sha>, and replaces the
+#            "edge" pre-release with that same zip. This is not a release tag, so it isn't gated on Lyra (#982); it
+#            gives anyone a published image and a real download before the first v* tag exists.
 name: Forge Table
 
 on:
   push:
-    branches: [forge-table]
+    branches: [forge-table, main]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -133,3 +137,46 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes $pre "$RUNNER_TEMP"/dist/*.zip "$RUNNER_TEMP"/dist/*.sha256
         env:
           GH_TOKEN: ${{ github.token }}
+
+  image:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [web, bridge, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      # No --overlay: the published image and the edge zip carry the bundled AI only, same as the solo zip path.
+      - run: forge-gui-bridge/package.sh
+        env:
+          MVN_FLAGS: -ntp -Dmaven.javadoc.skip=true
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push the image
+        run: |
+          sha=$(git rev-parse --short=8 HEAD)
+          zip=$(ls forge-gui-bridge/target/dist/*.zip)
+          docker build -f forge-gui-bridge/docker/Dockerfile \
+            --build-arg ZIP="target/dist/$(basename "$zip")" \
+            -t ghcr.io/mdbook/forge-table:edge -t "ghcr.io/mdbook/forge-table:$sha" \
+            forge-gui-bridge
+          docker push ghcr.io/mdbook/forge-table:edge
+          docker push "ghcr.io/mdbook/forge-table:$sha"
+      - name: Replace the edge pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete edge --yes --cleanup-tag || true
+          gh release create edge forge-gui-bridge/target/dist/*.zip forge-gui-bridge/target/dist/*.sha256 \
+            --title "Forge Table (edge build)" --prerelease --target "$GITHUB_SHA" \
+            --notes "Automatic build from the latest main. No neural AI opponent (Lyra) until lyra-forge-plugin is public (#982); use a tagged v* release for that once one exists."

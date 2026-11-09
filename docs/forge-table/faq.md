@@ -81,7 +81,7 @@ any `--decks` folder. With the release zip that user folder is `user/forge/`, so
 | Symptom | Cause and fix |
 |---|---|
 | `FORGE_TABLE_ERROR … already using this user folder` | Another Forge Table sidecar holds the lock on that user folder. Stop it, or give this one another `-Duser.home`. |
-| `FORGE_TABLE_ERROR {"reason":"Refusing to listen on …"}` | A wildcard `--bind`, a non-loopback one without sign-in (`FT_AUTH` `header`, `users` or `oidc`), or a public address. In Docker without a proxy, run with `--network host -e FT_BIND=127.0.0.1`. |
+| `FORGE_TABLE_ERROR {"reason":"Refusing to listen on …"}` | A wildcard `--bind`, a non-loopback one without sign-in (`FT_AUTH` `header`, `users` or `oidc`), or a public address. Use the [default Docker Compose setup](install.md#docker), which supplies sign-in and a TLS proxy without host networking. The solo host-network alternative is Linux-only. |
 | `--require-group and --admin-group need --groups-header` | Set `FT_GROUPS_HEADER` to the header your proxy sends groups in. |
 | `--guests needs --real-ip-header` | Set `FT_REAL_IP_HEADER` and make your proxy set that header. |
 | Every request behind the proxy gets `401` | The proxy isn't setting the header named in `FT_TRUST_PROXY_HEADER`, or sets it under another name. |

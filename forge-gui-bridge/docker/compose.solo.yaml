@@ -1,11 +1,11 @@
 # Forge Table for yourself alone, with no login: the server listens on the host's loopback only (Linux).
-# Build the image first (docs/forge-table/install.md), then:
 #   docker compose -f compose.solo.yaml up -d
 #   docker compose -f compose.solo.yaml logs forge-table | grep FORGE_TABLE_READY
 # and open the url from that line (it ends in #t=<token>). To play with friends, use compose.yaml instead.
+# Docker Desktop users should use compose.yaml too; host networking here is Linux-only.
 services:
   forge-table:
-    image: forge-table
+    image: ${FORGE_TABLE_IMAGE:-ghcr.io/mdbook/forge-table:edge}
     restart: unless-stopped
     network_mode: host
     environment:

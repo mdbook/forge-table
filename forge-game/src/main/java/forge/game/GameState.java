@@ -613,6 +613,11 @@ public class GameState {
         game.getStack().setResolving(true);
 
         game.getPhaseHandler().devModeSet(newPhase, newPlayerTurn, turn);
+        // The Combat is made as the beginning of combat begins, which a state set to that step never goes through:
+        // without one, the declare attackers step after it throws.
+        if (newPhase == PhaseType.COMBAT_BEGIN && newPlayerTurn != null && game.getPhaseHandler().getCombat() == null) {
+            game.getPhaseHandler().setCombat(new Combat(newPlayerTurn));
+        }
 
         game.getTriggerHandler().setSuppressAllTriggers(true);
 

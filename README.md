@@ -6,27 +6,11 @@ Forge Table lets you play Magic: The Gathering in a web browser, against the com
 > saved data and the plugin interface to change between releases without a migration path. Bug reports and feature
 > requests are welcome.
 
-![A game in progress: the opponent attacks, the player's hand along the bottom](docs/images/game.png)
-
-Forge Table is its own product. The rules come from [Forge](https://github.com/Card-Forge/forge), the open-source
-Magic rules engine, which runs inside the server; the table you play on, the lobby, the multi-game server and the
-deployment story are Forge Table's. It isn't affiliated with the Forge project or with Wizards of the Coast (see
-[NOTICE](NOTICE)).
-
-## What you need
-
-- Java 17 or newer on the machine that runs the server (CI and the Docker image use 21).
-- About 1.5 GB of free RAM per game that's running at the same time.
-- A browser with WebGL. The test suite runs in Chromium; other current browsers should work but aren't tested.
-- Internet access, but only if you want card art. The server fetches it from Scryfall on demand. Games themselves
-  work offline.
-
-To host for a group you also need a reverse proxy with TLS in front. Who signs people in is up to you: Forge
-Table's own accounts, your OpenID Connect provider, or a login proxy.
-
 ## Your first game
 
-Nothing to configure for one player on your own computer.
+You need **Java 17 or newer**, about **1.5 GB of free RAM per game**, and a browser with WebGL.
+Chromium is tested; other current browsers should work. Nothing to configure for one player on your own computer,
+and you do not need to clone this repository.
 
 1. Download the latest `forge-table-<build>.zip` from the
    [Releases page](https://github.com/mdbook/forge-table/releases) and unzip it.
@@ -37,61 +21,59 @@ Nothing to configure for one player on your own computer.
 Everything it saves, from imported decks to the card-art cache, goes in `user/` next to the launcher. The server
 listens on `127.0.0.1` only and the link it opens carries a random token, so nobody else on your network can join. With `./launch.sh --card-art off` the server fetches no card art at all.
 
-### Or with Docker (Linux)
+Stop with Ctrl+C or by closing the terminal. Internet access is only needed for card art, fetched from Scryfall;
+games work offline. To upgrade, unzip the next release and move your `user/` folder into it.
 
-The image is built from the same release zip:
+## Docker and playing with friends
 
-```sh
-git clone https://github.com/mdbook/forge-table.git && cd forge-table
-mkdir -p forge-gui-bridge/target/dist
-cp ~/Downloads/forge-table-*.zip forge-gui-bridge/target/dist/
-docker build -t forge-table -f forge-gui-bridge/docker/Dockerfile \
-  --build-arg ZIP=target/dist/forge-table-<build>.zip forge-gui-bridge
-docker run -d --name forge-table --network host -e FT_BIND=127.0.0.1 -v forge-table:/data forge-table
-docker logs forge-table 2>&1 | grep FORGE_TABLE_READY
-```
+Docker Compose is the recommended way to host the lobby and games for a group. It includes Java, Caddy for HTTPS,
+and Forge Table's own accounts. No separate login provider is needed. This works with Docker Engine or Docker
+Desktop; the default stack does not use host networking.
 
-Open the `url` from that line (it ends in `#t=<token>`). This runs the multi-game server with its lobby, for you
-alone on the host's loopback.
+**Before you start:** Docker with Compose, a domain pointing at your server, and inbound ports 80 and 443 available
+for Caddy. Allow about 1.5 GB of free RAM per running game, plus room for the server. The published image is
+`ghcr.io/mdbook/forge-table:edge`; Compose pulls it, nothing to build.
 
-## Playing with friends
+From [forge-gui-bridge/docker/](forge-gui-bridge/docker/) (get `compose.yaml`, `Caddyfile` and
+`compose-settings.example`, copy the settings file to `.env` and set `FT_DOMAIN`, see
+[install.md](docs/forge-table/install.md#docker)):
 
-The multi-game server (router mode) gives everyone a lobby, runs each game in its own JVM and lets two people play
-each other. Pick how people sign in with `FT_AUTH`:
+1. Start the server:
+   ```sh
+   docker compose up -d
+   ```
+2. Make your account and your friend's account. Each command asks for a password of at least 10 characters:
+   ```sh
+   docker compose exec forge-table java -cp "lib/*" forge.bridge.Main --users add ana --admin --data /data
+   docker compose exec forge-table java -cp "lib/*" forge.bridge.Main --users add sam --data /data
+   ```
+3. Open `https://<your-domain>/`, sign in, and share that address with your friend. Start a two-player game in the
+   lobby. Give your friend their password privately; there is no public sign-up.
 
-| `FT_AUTH` | Who signs people in | You also set |
-|---|---|---|
-| `users` | Forge Table: its own sign-in page and accounts you make from the command line | `FT_REAL_IP_HEADER` |
-| `oidc` | Your OpenID Connect provider (Authentik, Keycloak, Authelia, Google and so on), through a "Sign in with" button | `FT_PUBLIC_URL`, `FT_OIDC_ISSUER`, `FT_OIDC_CLIENT_ID`, `FT_OIDC_CLIENT_SECRET_FILE` |
-| `users,oidc` | Both, on one sign-in page | all of the above |
-| `header` | A login proxy (oauth2-proxy, an Authentik outpost, Caddy `forward_auth`), which passes the user name in a header | `FT_TRUST_PROXY_HEADER`, e.g. `X-Forwarded-User` |
+No token URL or log filtering is needed. Caddy gets the HTTPS certificate on first start. If the site does not
+open, check `docker compose logs` and your domain's DNS and firewall. Stop with `docker compose down`;
+accounts, decks and saved games stay in the named volume. Do not add `--volumes` unless you mean to delete them.
+
+### Configuration
+
+The [example settings](forge-gui-bridge/docker/compose-settings.example) has the domain and image name.
+[compose.yaml](forge-gui-bridge/docker/compose.yaml) starts with one game at a time (`FT_MAX_MATCHES=1`);
+raise that only when the server has enough RAM. Other server settings use `FT_*` environment variables, listed in
+the [configuration reference](docs/forge-table/configuration.md).
+
+Keep the server's port private: only Caddy publishes ports. If you already have a TLS proxy, or want single sign-on,
+guest links or admin options, see [Hosting for a group](docs/forge-table/hosting.md).
+The optional [compose.oidc.yaml](forge-gui-bridge/docker/compose.oidc.yaml) is for an existing login provider;
+[compose.solo.yaml](forge-gui-bridge/docker/compose.solo.yaml) is a Linux-only, local token-mode alternative.
+
+## The table
+
+![A game in progress: the opponent attacks, the player's hand along the bottom](docs/images/game.png)
 
 ![The lobby: two games in progress, one starting, an open table from a friend](docs/images/lobby.png)
 
-Whichever you pick:
-
-- `FT_BIND`: the address your reverse proxy connects to. Loopback if the proxy runs on the same host, otherwise one
-  private address. The Docker image picks its container address for you.
-- Your proxy: TLS, and forward everything to the server, WebSockets included.
-- Your firewall or Docker network: only the proxy may reach the server's port. In `header` mode that's the whole
-  security story, since whoever reaches the port can claim to be anyone.
-
-![New game: pick a format, one of your decks and an AI or a friend](docs/images/new-game.png)
-
-Admins, group restrictions, guest links and link previews are optional. [Hosting for a group](docs/forge-table/hosting.md)
-walks through each sign-in mode with examples, and the checks to run before you open it up. For Docker,
-[compose.yaml](forge-gui-bridge/docker/compose.yaml) is a ready oauth2-proxy stack and
-[compose.solo.yaml](forge-gui-bridge/docker/compose.solo.yaml) runs it for you alone.
-
-```mermaid
-%%{init: {"flowchart": {"padding": 16, "nodeSpacing": 50, "rankSpacing": 60}}}%%
-flowchart LR
-  U["Players' browsers"] -->|HTTPS| P["Your reverse proxy"]
-  P --> R["Forge Table router<br/>(signs people in, or trusts the proxy's header)"]
-  R --> C1["Game JVM"]
-  R --> C2["Game JVM"]
-  R --> C3["Game JVM"]
-```
+Forge Table is its own product, built on the [Forge](https://github.com/Card-Forge/forge) rules engine.
+It isn't affiliated with the Forge project or with Wizards of the Coast (see [NOTICE](NOTICE)).
 
 ## Documentation
 

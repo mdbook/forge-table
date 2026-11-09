@@ -1,7 +1,27 @@
 # Hosting for a group
 
-The router serves everyone from one site: a lobby, each person's decks and games, and games between friends. First
-decide who signs people in. `FT_AUTH` picks:
+The router serves everyone from one site: a lobby, each person's decks and games, and games between friends.
+
+## Start with Forge Table accounts
+
+The [default Docker Compose stack](../../forge-gui-bridge/docker/compose.yaml) uses `FT_AUTH=users`. Caddy
+handles HTTPS and supplies the real client address. You do not need a login provider or an OAuth client.
+
+1. Follow [Docker install](install.md#docker): set your domain in the example settings, then run
+   `docker compose up -d` from `forge-gui-bridge/docker/`. Compose pulls the published image.
+2. Make an admin with
+   `docker compose exec forge-table java -cp "lib/*" forge.bridge.Main --users add ana --admin --data /data`.
+   Repeat without `--admin`, using a different login, for each friend. Each command asks for a password.
+3. Open `https://<your-domain>/`, sign in, and share that address and each friend's own login privately. Start a
+   two-player game in the lobby. There is no public sign-up.
+
+Keep ports 8790 and 8799 unpublished and keep unrelated containers off the `table` network. Run the checks at the
+end of this page before inviting people. If you already ran the old oauth2-proxy `compose.yaml`, use
+`compose.oidc.yaml` to keep that setup. Do not start both stacks against the same data volume.
+
+## Other sign-in choices
+
+You can keep the default accounts or bring an existing login provider. `FT_AUTH` picks:
 
 | `FT_AUTH` | Who signs people in | Read |
 |---|---|---|
@@ -83,8 +103,8 @@ router, from inside the unzipped release:
 java -cp "lib/*" forge.bridge.Main --users add ana --admin --data /var/lib/forge-table   # asks for the password
 ```
 
-With Docker, run the same thing in the container:
-`docker exec -it forge-table java -cp "lib/*" forge.bridge.Main --users add ana --admin --data /data`.
+With the default Docker Compose stack, run the same thing in the container from its Compose directory:
+`docker compose exec forge-table java -cp "lib/*" forge.bridge.Main --users add ana --admin --data /data`.
 
 `--users` also takes `list`, `reset <login>`, `disable <login>`, `enable <login>`, `admin <login> on|off` and
 `delete <login>`, and `add` takes `--name NAME` for the name other players see. It reads passwords from the
@@ -115,7 +135,7 @@ on anything that faces the internet.
 ## Sign in with OIDC
 
 `FT_AUTH=oidc` puts a "Sign in with SSO" button on the sign-in page that sends people to your OpenID Connect
-provider (Authentik, Keycloak, Authelia, Google and so on) and back. At the provider, make a confidential client
+provider and back. At the provider, make a confidential client
 (an "OAuth2/OpenID provider" or "web application") with:
 
 - **Redirect URI** `<FT_PUBLIC_URL>/auth/oidc/callback`, for example `https://forge.example.com/auth/oidc/callback`.
@@ -188,10 +208,11 @@ sends before you rely on groups; if it sends one header per group, the router an
 
 Here oauth2-proxy is the reverse proxy itself. It signs people in with your OIDC provider and forwards to Forge
 Table on a private Docker network. The whole stack is
-[compose.yaml](../../forge-gui-bridge/docker/compose.yaml): copy it, replace the `example.com` URLs, register a
+[compose.oidc.yaml](../../forge-gui-bridge/docker/compose.oidc.yaml): copy it, replace the `example.com` URLs, register a
 client called `forge-table` with your provider, and create `oauth2-proxy.env` next to it with
 `OAUTH2_PROXY_CLIENT_SECRET` and `OAUTH2_PROXY_COOKIE_SECRET` (the file's header says how to make the cookie
-secret). Then `docker compose up -d`, and put your usual TLS terminator in front of `127.0.0.1:4180`.
+secret). Then `docker compose -f compose.oidc.yaml up -d`, and put your usual TLS terminator in front of
+`127.0.0.1:4180`. It pulls the published Forge Table image, as described in [Install](install.md#docker).
 
 The parts that matter for security:
 

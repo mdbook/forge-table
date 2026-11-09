@@ -1,0 +1,10 @@
+# Cleanup hand size (CleanupHandSizeTest): eight cards in hand at my Main 2; cleanup discards down to 7, one card.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN2
+humanhand=Mountain;Mountain;Mountain;Mountain;Island;Island;Island;Island
+humanlibrary=Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain;Mountain
+ailibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+aibattlefield=Forest

@@ -440,12 +440,14 @@ the LAN); any proxy that meets the header rules in step 4 works. Reference files
 [`forge-gui-bridge/docker/`](../../forge-gui-bridge/docker/) builds the same router as an image from a release zip
 (`package.sh`, then the `docker build` line at the top of its `Dockerfile`), with its data in the `/data` volume and
 every setting as an `FT_*` variable. The image listens on the container's own address, never `0.0.0.0`, so it needs
-a sign-in mode to start (a login proxy, `FT_AUTH=users` or `oidc`): `compose.yaml` puts it on a network with your login proxy, which forwards to
-`http://forge-table:8790` and is the only thing that can reach it. To play alone without a proxy, run it on the host's
+a sign-in mode to start (a login proxy, `FT_AUTH=users` or `oidc`). The default `compose.yaml` uses Forge Table accounts
+and Caddy for HTTPS; `compose.oidc.yaml` keeps the optional oauth2-proxy stack. Each puts the router on a network
+with only its proxy, forwarding to `http://forge-table:8790`. See [Install](install.md#docker) for the image and
+example settings. To play alone without a proxy on Linux, run it on the host's
 loopback instead: `docker run --network host -e FT_BIND=127.0.0.1 -v forge-table:/data forge-table`, then open the
 `#t=` link it prints. `/healthz` is the image's healthcheck, on the loopback admin port 8799.
 
-**The user header is the login, so anything that can reach port 8790 can claim to be anyone.** Never publish it
+**In header mode the user header is the login, so anything that can reach port 8790 can claim to be anyone.** Never publish it
 (`-p 8790:8790` or `ports:` in compose): then anyone who reaches the host sets `X-Forwarded-User` themselves. On
 the proxy network, every other container can do the same, so give Forge Table and its proxy a network of their own.
 

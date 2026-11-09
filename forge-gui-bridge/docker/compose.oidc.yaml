@@ -1,0 +1,43 @@
+# Optional login-proxy stack for an existing OIDC provider. This was previously compose.yaml.
+# Replace the example.com URLs and register a client "forge-table" with your OIDC provider. Create
+# oauth2-proxy.env next to this file with
+#   OAUTH2_PROXY_CLIENT_SECRET=...
+#   OAUTH2_PROXY_COOKIE_SECRET=...   (32 random bytes: openssl rand -base64 32 | tr -- '+/' '-_')
+# Start with: docker compose -f compose.oidc.yaml up -d
+# Put your TLS terminator in front of 127.0.0.1:4180. Only the proxy may reach forge-table:8790.
+# Keep other containers off the "table" network. See docs/forge-table/hosting.md for the security checks.
+services:
+  forge-table:
+    image: ${FORGE_TABLE_IMAGE:-ghcr.io/mdbook/forge-table:edge}
+    restart: unless-stopped
+    environment:
+      FT_TRUST_PROXY_HEADER: X-Forwarded-User
+      FT_NAME_HEADER: X-Forwarded-Preferred-Username
+      FT_GROUPS_HEADER: X-Forwarded-Groups
+      FT_ADMIN_GROUP: forge-table-admins
+      FT_MAX_MATCHES: "4"
+      # FT_PUBLIC_URL: https://forge.example.com
+    volumes:
+      - forge-table-data:/data
+    networks: [table]
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    restart: unless-stopped
+    command:
+      - --http-address=0.0.0.0:4180
+      - --upstream=http://forge-table:8790
+      - --provider=oidc
+      - --oidc-issuer-url=https://login.example.com
+      - --redirect-url=https://forge.example.com/oauth2/callback
+      - --email-domain=*
+    environment:
+      OAUTH2_PROXY_CLIENT_ID: forge-table
+    env_file: oauth2-proxy.env
+    ports: ["127.0.0.1:4180:4180"]
+    networks: [table]
+
+networks:
+  table: {}
+volumes:
+  forge-table-data: {}
