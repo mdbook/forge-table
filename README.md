@@ -19,7 +19,7 @@
 
 <p align="center">
   <a href="https://github.com/mdbook/forge-table/actions/workflows/forge-table.yml"><img src="https://github.com/mdbook/forge-table/actions/workflows/forge-table.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--only-blue" alt="License: GPL-3.0-only"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" alt="License: GPL-3.0-or-later"></a>
   <img src="https://img.shields.io/badge/java-17%2B-orange" alt="Java 17+">
   <img src="https://img.shields.io/badge/docker-compose-2496ED" alt="Runs with Docker Compose">
 </p>
@@ -127,7 +127,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Bugs in how a card's rules work belong t
 
 ## License
 
-GPL-3.0-only ([LICENSE](LICENSE)). The Forge engine it's built on is GPL-3.0-or-later, and its files keep their
+GPL-3.0-or-later ([LICENSE](LICENSE)). The Forge engine it's built on is GPL-3.0-or-later, and its files keep their
 notices. Card names and rules text are Wizards of the Coast's; Forge Table is unofficial Fan Content (see [NOTICE](NOTICE)). The card frame uses open (OFL) lookalike
 fonts by default, and an operator can serve other fonts with [`--fonts`](docs/forge-table/configuration.md#files).
 The original Forge README is kept at [docs/Forge-engine-README.md](docs/Forge-engine-README.md).

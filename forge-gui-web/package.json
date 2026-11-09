@@ -2,7 +2,7 @@
   "name": "forge-table",
   "private": true,
   "description": "Forge Table web client workspace.",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "engines": {
     "node": ">=22"
   },

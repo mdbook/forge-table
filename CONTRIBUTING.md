@@ -43,4 +43,4 @@ and include them in the pull request. [Building and testing](docs/forge-table/bu
 ## Pull requests
 
 Keep each one to a single change and say how you tested it. CI has to pass before a merge. By contributing you agree
-that your work is licensed under the GPL-3.0-only, like the rest of Forge Table.
+that your work is licensed under the GPL-3.0-or-later, like the rest of Forge Table.
