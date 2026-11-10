@@ -37,6 +37,17 @@ import io.netty.handler.codec.http.HttpResponseStatus;
  */
 public class RouterTest {
 
+    @Test
+    public void textGameLogSettingsReachTheChildFromTheEnvironment() {
+        final Router.Options o = Router.parseArgs(Router.withDefaults(new String[] {"--router"},
+                Map.of("FT_GAME_LOG_DIR", "logs", "FT_GAME_LOG_KEEP", "3", "FT_GAME_LOG_MAX_BYTES", "8192")));
+        assertTrue(o.child.childArgs.containsAll(List.of("--game-log-dir", "logs", "--game-log-keep", "3",
+                "--game-log-max-bytes", "8192")));
+        assertFalse(Router.parseArgs(new String[] {"--router"}).child.childArgs.contains("--game-log-dir"));
+        expectThrows(IllegalArgumentException.class, () -> Router.parseArgs(new String[] {"--game-log-keep", "0"}));
+        expectThrows(IllegalArgumentException.class, () -> Router.parseArgs(new String[] {"--game-log-max-bytes", "0"}));
+    }
+
     /** Games that are "running" as soon as they're created; attach answers with what it was given. */
     static final class StubHost implements GameHost {
         final Map<String, Game> games = new ConcurrentHashMap<>();

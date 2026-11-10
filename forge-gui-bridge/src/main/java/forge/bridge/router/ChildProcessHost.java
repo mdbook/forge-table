@@ -1096,6 +1096,8 @@ public final class ChildProcessHost implements GameHost {
         cmd.add("--names-only");
         cmd.add("--progress");
         cmd.addAll(cfg.childArgs);
+        // The router's game id, not a browser value: correlate text logs with the lobby and child.log.
+        addOpt(cmd, "--game-log-id", home.toAbsolutePath().getParent().getFileName().toString());
         addOpt(cmd, "--deck", deck);
         addOpt(cmd, "--opp-deck", oppDeck);
         addOpt(cmd, "--ai", ai);

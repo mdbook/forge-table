@@ -122,8 +122,24 @@ both as off.
 | Flag | Env / config key | Default | What it does |
 |---|---|---|---|
 | `--debug` | `FT_DEBUG` | off | Log every message the server sends to stderr, in the router and in every game. |
+| `--game-log-dir DIR` | `FT_GAME_LOG_DIR` | none, disabled | Persist Forge's complete text game log locally, one file per engine game, including rematches and two-player games. Passed to every game. See the privacy and retention notes below. |
+| `--game-log-keep N` | `FT_GAME_LOG_KEEP` | `200` | Keep at most this many `*.game.log` files in the log directory, newest modified first. Positive integer. Retention includes games still playing and is applied when a new log is created. |
+| `--game-log-max-bytes N` | `FT_GAME_LOG_MAX_BYTES` | `4194304` (4 MiB) | Per-file UTF-8 byte cap, at least `1024`. A full file ends with a truncation marker and is no longer written. |
 | `--test-prefs` | `FT_TEST_PREFS` | off | Deterministic Forge preferences for tests (no online image fetching, one game per match), and card art off. Never use it on a real profile. |
 | `--config FILE` | `FT_CONFIG` | none | Read settings from this file (see above). Has no `FT_` key of its own inside the file. |
+
+Text logs are operator diagnostics, not browser replays. They include player names and private game information
+(such as drawn cards); restrict access to their directory and tell players when enabling them. They are never
+served to browsers or uploaded by Forge Table, and are independent of the Neural training-upload toggle. Leave
+the directory unset to write nothing. To keep diagnostics next to Neural trajectories, set it to
+`<data>/neural-games/logs`, a sibling of `traj/`, **not inside the upload queue**.
+
+Names start with the router's game id and the engine game number (`<id>-g<number>-<unique>.game.log`), so they can
+be correlated with the lobby id, `child.log` and the trajectory's time window. A resume/restart creates another
+unique file rather than overwriting the old one. Each entry is persisted as it arrives, in chronological order,
+including entries already recorded before the game view attached. This also keeps logs for unfinished games.
+Only `*.game.log` regular files are pruned; trajectories and other files are left alone. If retention removes an
+older game still playing, its writer stops rather than recreating the file. I/O errors warn without stopping play.
 
 ### Fixed in code
 
@@ -163,12 +179,15 @@ Without `--router`, `forge.bridge.Main` runs one game. These flags don't have `F
 | `--card-image-map FILE` | none | As for the router. |
 | `--speed X` | `1` | Initial animation speed. `0` is instant and turns pacing off. Players can change it in the game. |
 | `--record FILE` | none | Append every message sent to the browser to `FILE` as JSON lines. This is how replay test fixtures are made. |
+| `--game-log-dir DIR` | none, disabled | As for the router: local Forge text logs, not protocol recordings. |
+| `--game-log-keep N` | `200` | As for the router. |
+| `--game-log-max-bytes N` | `4194304` | As for the router. |
 | `--state FILE` | none | Start from a board state (a Forge `.pzl` file's `[state]` section, or a whole state file). For tests. |
 | `--test-prefs` | off | As for the router. |
 | `--debug` | off | Log every outbound message to stderr. |
 
-The router starts its games with four more flags of its own: `--names-only`, `--progress`, `--pvp` and
-`--seat1-decks`. They are internal and you shouldn't need them.
+The router starts its games with five more flags of its own: `--names-only`, `--progress`, `--pvp`,
+`--seat1-decks` and `--game-log-id`. They are internal and you shouldn't need them.
 
 ## Java system properties
 

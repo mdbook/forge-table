@@ -564,6 +564,7 @@ public final class Router {
             "--require-group", "--admin-group", "--groups-header", "--groups-separator", "--public-url", "--max-matches",
             "--reserve-mb", "--game-mb", "--max-per-user", "--idle-minutes", "--grace-minutes", "--admin-port", "--mtgai-upload",
             "--mtgai-upload-url", "--drain-timeout", "--web", "--assets", "--decks", "--card-art", "--card-image-map",
+            "--game-log-dir", "--game-log-keep", "--game-log-max-bytes",
             "--real-ip-header", "--fonts", "--auth", "--session-idle-days", "--session-max-days", "--logout-url",
             "--oidc-issuer", "--oidc-client-id", "--oidc-client-secret-file", "--oidc-scopes", "--oidc-login-claim", "--oidc-name-claim",
             "--oidc-groups-claim", "--oidc-label", "--oidc-logout");
@@ -699,9 +700,19 @@ public final class Router {
                     child.add(a);
                     child.add(o.webDir);
                 }
-                case "--assets", "--decks", "--card-art", "--card-image-map" -> {
+                case "--assets", "--decks", "--card-art", "--card-image-map", "--game-log-dir" -> {
                     child.add(a);
                     child.add(args[++i]);
+                }
+                case "--game-log-keep", "--game-log-max-bytes" -> {
+                    final String value = args[++i];
+                    final long n = Long.parseLong(value);
+                    if (n < ("--game-log-keep".equals(a) ? 1 : 1024)
+                            || ("--game-log-keep".equals(a) && n > Integer.MAX_VALUE)) {
+                        throw new IllegalArgumentException("invalid " + a);
+                    }
+                    child.add(a);
+                    child.add(value);
                 }
                 case "--test-prefs" -> child.add(a);
                 case "--guests" -> o.guests = true;

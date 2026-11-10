@@ -27,6 +27,7 @@ import forge.util.BuildInfo;
  *      [--decks DIR] [--deck NAME] [--opp-deck NAME] [--ai PROFILE] [--state FILE] [--speed X] [--record FILE]
  *      [--card-art curated|printed|off] [--card-image-map FILE] [--progress] [--pvp [--seat1-decks DIR]] [--format constructed|standard|brawl]
  *      [--checkpoint FILE [--resume]]
+ *      [--game-log-dir DIR [--game-log-keep N] [--game-log-max-bytes N]]
  * java @forge-table.args forge.bridge.Main --router …   (many games: see {@link forge.bridge.router.Router}; first argument)
  * java @forge-table.args forge.bridge.Main --users …    (native sign-in's accounts: see {@link forge.bridge.auth.UsersCli})
  * </pre>
@@ -199,6 +200,10 @@ public final class Main {
                 case "--format" -> o.format = Formats.parse(args[++i]);
                 case "--checkpoint" -> o.checkpoint = args[++i];
                 case "--resume" -> o.resume = true;
+                case "--game-log-dir" -> o.gameLogDir = args[++i];
+                case "--game-log-id" -> o.gameLogId = args[++i];
+                case "--game-log-keep" -> o.gameLogKeep = Integer.parseInt(args[++i]);
+                case "--game-log-max-bytes" -> o.gameLogMaxBytes = Long.parseLong(args[++i]);
                 case "--debug" -> BridgeLog.setDebug(true);
                 default -> throw new IllegalArgumentException("Unknown option " + a);
             }

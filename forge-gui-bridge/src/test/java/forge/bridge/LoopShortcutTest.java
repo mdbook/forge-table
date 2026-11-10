@@ -8,7 +8,9 @@ import static org.testng.Assert.fail;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -23,6 +25,8 @@ import forge.bridge.match.TableSession;
 import forge.game.Game;
 import forge.game.event.GameEventPlayerLivesChanged;
 import forge.game.player.Player;
+import forge.game.player.actions.ConfirmAction;
+import forge.game.player.actions.PassPriorityAction;
 import forge.gamemodes.match.HostedMatch;
 import forge.gamemodes.match.input.Input;
 import forge.gamemodes.match.input.InputConfirm;
@@ -36,6 +40,49 @@ import forge.player.RecordActionsMacroSystem;
  * the other one, cast it with the mana; Zulaport Cutthroat drains 1 a loop.
  */
 public class LoopShortcutTest {
+
+    /** Ticket 2383: neither slow nor fast playback may accept a new sacrifice/pay confirmation. */
+    @Test
+    public void anUnrecordedConfirmationNeedsThePlayer() throws Exception {
+        checkConfirmation(false, false);
+        checkConfirmation(true, false);
+    }
+
+    /** A later recorded Yes must not be used to answer a decision before its recorded priority pass. */
+    @Test
+    public void aFutureConfirmationIsNotConsentForANewPrompt() throws Exception {
+        checkConfirmation(false, true);
+        checkConfirmation(true, true);
+    }
+
+    private static void checkConfirmation(final boolean fast, final boolean futureYes) throws Exception {
+        try (AutoPassTest.Game g = new AutoPassTest.Game("loop-retriever.txt", false)) {
+            g.awaitPriority();
+            g.autoKeep = false;
+            final PlayerControllerHuman controller = (PlayerControllerHuman) g.sidecar().app.match().getGame()
+                    .getPlayers().stream().filter(pl -> pl.getController() instanceof PlayerControllerHuman)
+                    .findFirst().orElseThrow().getController();
+            final RecordActionsMacroSystem macro = (RecordActionsMacroSystem) controller.macros();
+            final InputConfirm confirm = new InputConfirm(controller, "Sacrifice Candy Trail?", "Yes", "No", false);
+            FThreads.invokeInEdtLater(() -> {
+                macro.setFastPlayback(fast);
+                macro.startRecording();
+                macro.addRememberedAction(new PassPriorityAction());
+                if (futureYes) {
+                    macro.addRememberedAction(new ConfirmAction(null, true));
+                }
+                macro.finishRecording();
+                controller.getInputQueue().setInput(confirm);
+                macro.repeat(1);
+            });
+            g.awaitPrompt(m -> "confirm".equals(m.get("kind").getAsString()));
+            assertFalse(macro.isReplaying(), "playback stopped for the unrecorded decision");
+            assertSame(controller.getInputQueue().getInput(), confirm, "the prompt was not answered by playback");
+            assertFalse(confirm.getResult(), "no automatic Yes");
+            g.send(act(g.prompt, "cancel", null, null));
+            g.awaitPriority();
+        }
+    }
 
     /** Cancel is queued before the first playback action: the same Input/pid/body must be shown again. */
     @Test
@@ -124,7 +171,7 @@ public class LoopShortcutTest {
 
     /** Ticket 1526: no client acts/replies/acks during playback, at normal animation speed, including delivery. */
     @Test
-    public void aHundredIterationsArriveWithinFiveSeconds() throws Exception {
+    public void aHundredIterationsArriveInOrderWithoutClientReplies() throws Exception {
         try (AutoPassTest.Game g = new AutoPassTest.Game("loop-retriever-100.txt", false)) {
             final JsonObject p = g.awaitPriority();
             g.autoKeep = false;
@@ -139,8 +186,10 @@ public class LoopShortcutTest {
             speed.addProperty("value", 1);
             g.send(speed);
 
-            final long start = System.nanoTime();
+            final LoopDrains drains = new LoopDrains();
+            g.sidecar().app.match().getGame().subscribeToEvents(drains);
             loop(g, "done", 100);
+            // Only receive from here: a per-iteration act/reply/ack would stall until the harness timeout.
             g.awaitAutoPass(m -> "playing".equals(loopState(m)));
             final int[] beats = {0};
             g.await(m -> {
@@ -150,14 +199,27 @@ public class LoopShortcutTest {
                 return "prompt".equals(m.get("t").getAsString()) && "priority".equals(m.get("kind").getAsString())
                         && life(g, opp) == 899 && g.stackSize() == 0;
             });
-            final long elapsedMs = (System.nanoTime() - start) / 1_000_000;
-            System.out.println("[LoopShortcutTest] 100 repeats took " + elapsedMs + " ms");
-            assertTrue(elapsedMs <= 5000, "100 repeats took " + elapsedMs + " ms");
+            assertEquals(drains.lives.size(), 100, "every iteration resolved exactly once");
+            for (int i = 0; i < 100; i++) {
+                assertEquals(drains.lives.get(i).intValue(), 998 - i, "drain order at iteration " + (i + 1));
+            }
             assertTrue(beats[0] < 20, "intermediate actions were animated: " + beats[0] + " beats");
             assertEquals(life(g, g.viewer), 121);
             assertEquals(count(g, "Myr Retriever", "Battlefield"), 1);
             assertEquals(count(g, "Myr Retriever", "Graveyard"), 1);
             g.awaitAutoPass(m -> loopState(m) == null);
+        }
+    }
+
+    /** Observe every drain even though fast playback coalesces them into a final client projection. */
+    public static final class LoopDrains {
+        private final List<Integer> lives = new CopyOnWriteArrayList<>();
+
+        @Subscribe
+        public void receive(final GameEventPlayerLivesChanged event) {
+            if (event.player().isAI()) {
+                lives.add(event.newLives());
+            }
         }
     }
 

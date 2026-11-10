@@ -41,6 +41,20 @@ import com.google.gson.JsonParser;
  */
 public class ChildHostTest {
 
+    @Test
+    public void textLogsUseTheRouterGameIdIncludingInPvp() throws Exception {
+        final ChildProcessHost h = host("text-log-id", "exit 0", 60_000);
+        try {
+            final Path home = Path.of("target", "matches", "router-game-id", "home");
+            for (final List<String> cmd : List.of(h.command(home, null, null, null),
+                    h.pvpCommand(home, null, Path.of("target", "seat1")))) {
+                assertEquals(cmd.get(cmd.indexOf("--game-log-id") + 1), "router-game-id");
+            }
+        } finally {
+            h.close();
+        }
+    }
+
     private final HttpClient http = HttpClient.newHttpClient();
     private Router router;
     private ChildProcessHost host;

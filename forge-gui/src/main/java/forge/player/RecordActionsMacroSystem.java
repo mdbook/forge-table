@@ -569,11 +569,14 @@ public class RecordActionsMacroSystem implements IMacroSystem {
             }
             return waitForInput(inp);
         } else if (inp instanceof InputConfirm) {
-            final int confirmAction = findNextAction(PayCostAction.class, ConfirmAction.class);
+            // forge-table: a new pay/sacrifice/optional prompt is a decision, not a transition to click through.
+            // Do not borrow a confirmation from a later step of the recording either.
+            final int confirmAction = findNextActionBefore(1, PayCostAction.class, ConfirmAction.class);
             if (confirmAction >= 0 && processAction(playbackActions.get(confirmAction))) {
                 return confirmAction;
             }
-            return waitForInput(inp);
+            stopPlayback("unrecorded confirmation");
+            return NO_ACTION_ACCEPTED;
         } else if (inp instanceof InputPassPriority) {
             final int passPriority = findNextAction(PassPriorityAction.class);
             final int cardAction = findNextCardSelectionBefore(passPriority);

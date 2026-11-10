@@ -93,6 +93,11 @@ public final class BridgeApp implements BridgeGuiBase.DialogRouter {
         public String checkpoint;
         /** Start by picking up the game saved in {@link #checkpoint}, not from the start screen. */
         public boolean resume;
+        /** Operator-only text logs; null disables them. Separate from training captures and uploads. */
+        public String gameLogDir;
+        public String gameLogId;
+        public int gameLogKeep = 200;
+        public long gameLogMaxBytes = 4 * 1024 * 1024;
     }
 
     /** One person at the table. Fields change under {@code clientLock}; the volatile ones are also read without it. */
@@ -126,6 +131,7 @@ public final class BridgeApp implements BridgeGuiBase.DialogRouter {
     private final CardArtService art;
     /** Null without {@code --checkpoint}. */
     private final Checkpointer checkpointer;
+    private final TextGameLogs gameLogs;
     /** pvp {@code --resume}: the board to pick up once both seats are back (clientLock); null when not waiting. */
     private volatile List<String> pvpResume;
 
@@ -174,6 +180,9 @@ public final class BridgeApp implements BridgeGuiBase.DialogRouter {
                 options.cardImageMap != null ? Path.of(options.cardImageMap) : CardArtIndex.builtFile(tableCache),
                 options.cardImageMap != null, BuildInfo.getUserAgent() + " ForgeTable");
         this.checkpointer = options.checkpoint == null ? null : new Checkpointer(Path.of(options.checkpoint));
+        this.gameLogs = options.gameLogDir == null || options.gameLogDir.isBlank() ? null
+                : new TextGameLogs(Path.of(options.gameLogDir), options.gameLogId == null ? sessionId : options.gameLogId,
+                        options.gameLogKeep, options.gameLogMaxBytes);
         base.setDialogRouter(this);
     }
 
@@ -282,6 +291,16 @@ public final class BridgeApp implements BridgeGuiBase.DialogRouter {
                 // both seats report a game as it ends, never 200 games later: its id can go with it
                 resultIds.remove(results.remove(0).get("g").getAsInt());
             }
+        }
+    }
+
+    /** Both logging and checkpointing subscribe before the game asks for its first priority. */
+    private void gameAttached(final forge.game.Game game) {
+        if (gameLogs != null) {
+            gameLogs.watch(game);
+        }
+        if (checkpointer != null) {
+            checkpointer.watch(game);
         }
     }
 
@@ -677,6 +696,7 @@ public final class BridgeApp implements BridgeGuiBase.DialogRouter {
 
         final TableSession t = new TableSession(base);
         t.setOnGameFinished(this::gameFinished);
+        t.setOnGameAttached(this::gameAttached);
         if (options.speed != 1.0) {
             t.pacer().setSpeed(options.speed);
         }
@@ -695,7 +715,6 @@ public final class BridgeApp implements BridgeGuiBase.DialogRouter {
             settings.addProperty("deckRandom", deckWasRandom);
             settings.addProperty("oppDeckRandom", oppDeckWasRandom);
             checkpointer.begin(settings, mine, theirs);
-            t.setOnGameAttached(checkpointer::watch);
         }
         final HostedMatch hm = new HostedMatch();
         if (stateLines != null) {
@@ -1261,9 +1280,7 @@ public final class BridgeApp implements BridgeGuiBase.DialogRouter {
             rp.setPlayer(new LobbyPlayerHuman(nameOf(s)));
             final TableSession t = new TableSession(base);
             t.setOnGameFinished(this::gameFinished);
-            if (checkpointer != null) {
-                t.setOnGameAttached(checkpointer::watch);
-            }
+            t.setOnGameAttached(this::gameAttached);
             if (options.speed != 1.0) {
                 t.pacer().setSpeed(options.speed);
             }

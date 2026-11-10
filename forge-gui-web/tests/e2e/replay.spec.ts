@@ -398,6 +398,9 @@ test('replay: damage assignment, divided damage (O7) and surveil lanes', async (
   await page.getByTestId('ask-item-0').click();
   expect(await laneIds('graveyard')).toEqual(['ask-item-0']);
   await expect(page.getByTestId('arrange-count')).toHaveText('1 on top · 1 in the graveyard · click a card to switch');
+  // The clicked tile was re-parented into another lane and may disappear before mouseleave fires.
+  // Enter the remaining top tile before parking, so the preview always receives a real leave event.
+  await page.getByTestId('ask-item-1').hover();
   await park();
   await expect(page).toHaveScreenshot(`${SPLIT_SHOTS[2]!.name}.png`);
 
