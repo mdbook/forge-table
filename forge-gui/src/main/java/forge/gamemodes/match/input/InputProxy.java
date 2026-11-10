@@ -44,6 +44,9 @@ public class InputProxy implements Observer {
 
     /** The input. */
     private AtomicReference<Input> input = new AtomicReference<>();
+    // forge-table: the Input whose showMessageInitial has run; update() publishes the next Input before its show
+    // is queued on the UI thread, so fast macro playback must not act on it until then.
+    private final AtomicReference<Input> shown = new AtomicReference<>();
     private final PlayerControllerHuman controller;
 
 //    private static final boolean DEBUG_INPUT = true; // false;
@@ -69,6 +72,7 @@ public class InputProxy implements Observer {
             controller.getInputQueue().syncPoint();
             //System.out.printf("\t%s > showMessage @ %s/%s during %s%n", FThreads.debugGetCurrThreadId(), nextInput.getClass().getSimpleName(), current.getClass().getSimpleName(), game.getPhaseHandler().debugPrintState());
             current.showMessageInitial();
+            shown.set(current);
         };
         FThreads.invokeInEdtLater(showMessage);
     }
@@ -171,5 +175,10 @@ public class InputProxy implements Observer {
     /** @return {@link forge.gui.InputProxy.InputBase} */
     public Input getInput() {
         return input.get();
+    }
+
+    /** forge-table: the current Input once it has been shown (initialised), else something older. */
+    public Input getShownInput() {
+        return shown.get();
     }
 }

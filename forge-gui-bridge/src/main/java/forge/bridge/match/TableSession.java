@@ -41,6 +41,7 @@ import forge.gamemodes.match.input.InputAttack;
 import forge.gamemodes.match.input.InputBlock;
 import forge.gamemodes.match.input.InputConfirm;
 import forge.gamemodes.match.input.InputLockUI;
+import forge.gamemodes.match.input.InputPassPriority;
 import forge.gamemodes.match.input.InputQueue;
 import forge.gamemodes.match.input.InputSynchronized;
 import forge.gui.FThreads;
@@ -132,6 +133,7 @@ public final class TableSession {
         this.gui = new BridgeGuiGame(this);
         pacer.setPromptOutstanding(this::isPromptOutstanding);
         outbox.setBeatListener(pacer::beatSent);
+        outbox.setBatching(this::isLoopPlayback);
     }
 
     /** A game between two people: each seat's session knows the other's (loop shortcuts are offered across). */
@@ -238,7 +240,9 @@ public final class TableSession {
         pch.getYieldController().apply(autoSkipPref());
         pch.getYieldController().apply(autoResolvePref());
         // Forge makes the macro system on first use; make it here, so network threads only ever read it.
-        pch.macros();
+        if (pch.macros() instanceof RecordActionsMacroSystem m) {
+            m.setFastPlayback(true);
+        }
     }
 
     private YieldUpdate autoSkipPref() {
@@ -297,6 +301,13 @@ public final class TableSession {
     private RecordActionsMacroSystem loopMacro() {
         final PlayerControllerHuman pch = seatController;
         return pch != null && pch.macros() instanceof RecordActionsMacroSystem m ? m : null;
+    }
+
+    /** Both viewers batch an accepted shortcut; an offer or recording still plays normally. */
+    private boolean isLoopPlayback() {
+        final RecordActionsMacroSystem m = loopMacro();
+        final TableSession p = peer;
+        return (m != null && m.isReplaying()) || (p != null && p.loopRunning);
     }
 
     /** {@code {state: recording | offered | playing, steps, times, iteration, of}}, or null with no loop going. */
@@ -360,7 +371,7 @@ public final class TableSession {
                     return "nothing recorded";
                 }
                 if (peer == null) {
-                    if (!m.repeat(times)) {
+                    if (!repeatLoop(m, times)) {
                         return "nothing recorded";
                     }
                 } else {
@@ -398,7 +409,7 @@ public final class TableSession {
             return null;
         }
         final int n = stopAfter >= 1 && stopAfter < times ? stopAfter : times;
-        if (m == null || !m.repeat(n)) {
+        if (m == null || !repeatLoop(m, n)) {
             return "nothing recorded";
         }
         loopRunning = true;
@@ -407,6 +418,19 @@ public final class TableSession {
             toast("info", "Loop", "Your opponent accepted " + n + " of " + times + " and gets priority after that.");
         }
         return null;
+    }
+
+    private boolean repeatLoop(final RecordActionsMacroSystem m, final int times) {
+        if (!m.repeat(times)) {
+            return false;
+        }
+        // A shortcut must not inherit animation debt from the iteration recorded by hand.
+        pacer.skipAll();
+        final TableSession p = peer;
+        if (p != null) {
+            p.pacer.skipAll();
+        }
+        return true;
     }
 
     /**
@@ -631,10 +655,11 @@ public final class TableSession {
      */
     long consistentPid() {
         final PlayerControllerHuman pch = seatController;
-        if (pch == null) {
-            return -1;
-        }
-        final Input shown = pch.getInputProxy().getInput();
+        return pch == null ? -1 : consistentPid(pch.getInputProxy().getInput());
+    }
+
+    /** {@link #consistentPid()} for an Input already read, so a prompt's pid and kind describe the same Input. */
+    private long consistentPid(final Input shown) {
         synchronized (pidLock) {
             final boolean same = shown == currentQueueInput
                     || (currentQueueInput == null && (shown == null || shown instanceof InputLockUI));
@@ -671,12 +696,30 @@ public final class TableSession {
         if (pch == null || outbox.projector() == null) {
             return;
         }
+        outbox.flushBatch();
         flushAutoPass();
-        final long pid = consistentPid();
+        final Input shown = pch.getInputProxy().getInput();
+        final RecordActionsMacroSystem m = loopMacro();
+        if (outbox.isBatching() && ((m != null && m.isReplaying())
+                || shown == null || shown instanceof InputLockUI || shown instanceof InputPassPriority)) {
+            // My macro answers my Inputs on bridge-ui; the peer's loop only passes my priority. Other peer-loop
+            // decisions must reach the browser, with the accumulated state flushed by sendOrdered below.
+            // Don't let client auto-pay/auto-answer race the recorder or auto-pass.
+            synchronized (outbox.lock()) {
+                if (!lastPromptCleared) {
+                    final JsonObject clear = new JsonObject();
+                    clear.addProperty("t", "promptClear");
+                    clear.addProperty("pid", lastSentPid);
+                    outbox.sendOrdered(clear, null);
+                    lastPromptCleared = true;
+                }
+            }
+            return;
+        }
+        final long pid = consistentPid(shown);
         if (pid < 0) {
             return;
         }
-        final Input shown = pch.getInputProxy().getInput();
         final String kind = InputDescriber.kind(shown);
         final boolean fresh = gui.messagePid() == pid;
         if (!fresh && !"waiting".equals(kind)) {
@@ -692,7 +735,7 @@ public final class TableSession {
             }
             return;
         }
-        if (!gui.isPromptDirty() && pid == lastSentPid) {
+        if (!gui.isPromptDirty() && pid == lastSentPid && !lastPromptCleared) {
             return;
         }
         final boolean canUndo = "priority".equals(kind) && pch.canUndoLastAction();
@@ -720,7 +763,7 @@ public final class TableSession {
             if (fresh && shown instanceof InputConfirm ic && ic.getSpellAbility() instanceof WrappedAbility w) {
                 body.addProperty("triggerKey", w.yieldKey());
             }
-            if (pid == lastSentPid && body.equals(lastPrompt)) {
+            if (!lastPromptCleared && pid == lastSentPid && body.equals(lastPrompt)) {
                 gui.clearPromptDirty();
                 return;
             }

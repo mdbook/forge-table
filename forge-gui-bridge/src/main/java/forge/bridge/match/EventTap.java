@@ -108,7 +108,7 @@ public final class EventTap {
             BridgeLog.error("Failed to translate " + event.getClass().getSimpleName(), e);
             return;
         }
-        if (Thread.currentThread() == primaryThread && !UNPACED.contains(event.getClass())) {
+        if (Thread.currentThread() == primaryThread && !UNPACED.contains(event.getClass()) && !outbox.isBatching()) {
             pacer.admit(kind);
         }
     }

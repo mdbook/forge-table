@@ -1,0 +1,11 @@
+# The repeat-100 performance fixture: enough life that all 100 iterations complete without ending the game.
+humanlife=20
+ailife=1000
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanlibrary=Wastes;Wastes;Wastes;Wastes;Wastes;Wastes;Wastes;Wastes;Wastes;Wastes
+humanbattlefield=Ashnod's Altar;Myr Retriever;Zulaport Cutthroat
+humangraveyard=Myr Retriever
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Grizzly Bears

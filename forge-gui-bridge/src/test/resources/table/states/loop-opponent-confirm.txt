@@ -1,0 +1,11 @@
+# The Retriever loop with Bob's optional Soul's Attendant trigger: accepting the loop waives priority, not decisions.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanlibrary=Wastes;Wastes;Wastes;Wastes;Wastes;Wastes;Wastes;Wastes;Wastes;Wastes
+humanbattlefield=Ashnod's Altar;Myr Retriever;Zulaport Cutthroat
+humangraveyard=Myr Retriever
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Soul's Attendant

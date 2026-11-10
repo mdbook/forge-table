@@ -146,6 +146,11 @@ public final class ViewProjector {
         return card == null ? null : priorIds.remove(card.getId());
     }
 
+    /** Drop pending prior ids: the moves they belong to went out unannounced (a batched loop). */
+    public void forgetPriorIds() {
+        priorIds.clear();
+    }
+
     /** A copy of the card-to-client-id map as last sent. */
     public Map<Integer, String> copyClientIds() {
         return new HashMap<>(clientIdByCard);

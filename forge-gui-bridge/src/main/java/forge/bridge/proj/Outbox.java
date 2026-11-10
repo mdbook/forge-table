@@ -3,6 +3,7 @@ package forge.bridge.proj;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 import com.google.gson.Gson;
@@ -18,9 +19,9 @@ import forge.game.player.PlayerView;
  * The single ordered channel for everything sent to one viewer.
  *
  * <p>Under one lock it projects the current {@link GameView}, assigns the next {@code seq}, updates the
- * last-sent mirror and enqueues the message, so beats, settle patches and prompts share one total order and
+ * projection mirror and enqueues the message, so beats, settle patches and prompts share one total order and
  * the per-viewer projection is never touched by two threads at once. Resume snapshots are built from the
- * same mirror, so a snapshot is exactly consistent with the {@code seq} it carries.
+ * same mirror (flushing any staged loop patch first), so a snapshot is exactly consistent with its {@code seq}.
  */
 public final class Outbox {
 
@@ -52,6 +53,8 @@ public final class Outbox {
     private volatile Consumer<String> sink;
     private volatile Writer recorder;
     private volatile BeatListener beatListener;
+    private BooleanSupplier batching = () -> false;
+    private boolean batchDirty;
 
     public Object lock() {
         return lock;
@@ -73,10 +76,20 @@ public final class Outbox {
         this.beatListener = listener;
     }
 
+    /** Server-side loop playback: keep projection/visibility bookkeeping, but send only the resulting state. */
+    public void setBatching(final BooleanSupplier batching) {
+        this.batching = batching;
+    }
+
+    public boolean isBatching() {
+        return batching.getAsBoolean();
+    }
+
     /** Bind the game and viewer; resets the projection and sends a full snapshot. */
     public void bind(final GameView gv, final PlayerView viewer, final JsonObject extra) {
         synchronized (lock) {
             this.gameView = gv;
+            batchDirty = false;
             this.projector = new ViewProjector(viewer);
             projector.diff(gv);
             sendSnapshotLocked(extra);
@@ -108,6 +121,7 @@ public final class Outbox {
         if (projector == null) {
             return;
         }
+        flushBatchLocked();
         final JsonObject msg = new JsonObject();
         msg.addProperty("t", "snapshot");
         msg.addProperty("seq", seq);
@@ -140,6 +154,12 @@ public final class Outbox {
             if (projector == null) {
                 return -1;
             }
+            if (isBatching()) {
+                // No projection, animation, seq, serialization or pacing for intermediate actions: one diff at flush.
+                batchDirty = true;
+                return seq;
+            }
+            flushBatchLocked();
             final Map<Integer, String> beforeIds = projector.copyClientIds();
             final JsonObject patch = withPatch ? projector.diff(gameView) : null;
             final JsonObject fields = builder.build(c -> c == null ? null : beforeIds.get(c.getId()), projector::clientId, projector::takePriorId);
@@ -173,6 +193,15 @@ public final class Outbox {
         if (projector == null) {
             return;
         }
+        if (isBatching()) {
+            batchDirty = true;
+            return;
+        }
+        flushBatchLocked();
+        settleNowLocked();
+    }
+
+    private void settleNowLocked() {
         final JsonObject patch = projector.diff(gameView);
         if (patch == null) {
             return;
@@ -184,13 +213,36 @@ public final class Outbox {
         write(msg);
     }
 
+    /** Once a loop is over, deliver its batched state before notices (unordered) can say it ended. */
+    public void flushBatch() {
+        synchronized (lock) {
+            if (!isBatching()) {
+                flushBatchLocked();
+            }
+        }
+    }
+
+    /** Send everything a loop changed as one settle; its moves were never announced, so no beat may claim them. */
+    private void flushBatchLocked() {
+        if (!batchDirty || projector == null) {
+            return;
+        }
+        batchDirty = false;
+        settleNowLocked();
+        projector.forgetPriorIds();
+    }
+
     /**
      * Settle, then send a seq-numbered message ({@code prompt}, {@code promptUpdate}, {@code promptClear}).
      * {@code afterSeq} runs under the lock once the seq is assigned (for registry bookkeeping).
      */
     public long sendOrdered(final JsonObject msg, final Consumer<Long> afterSeq) {
         synchronized (lock) {
-            settleLocked();
+            // An unrecorded decision, game over or prompt must see all preceding changes, even during a loop.
+            flushBatchLocked();
+            if (projector != null) {
+                settleNowLocked();
+            }
             msg.addProperty("seq", ++seq);
             write(msg);
             if (afterSeq != null) {

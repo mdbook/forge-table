@@ -69,6 +69,8 @@ public class RecordActionsMacroSystem implements IMacroSystem {
     private volatile int repeatIteration;
     private volatile int repeatIterations;
     private int playbackRetries;
+    private boolean fastPlayback;
+    private Input lastActedInput;
     private ManaComboAction pendingRecordedManaCombo;
 
     public RecordActionsMacroSystem(final PlayerControllerHuman playerControllerHuman) {
@@ -385,6 +387,18 @@ public class RecordActionsMacroSystem implements IMacroSystem {
 
     public int getRepeatIterations() { return repeatIterations; }
 
+    /** Headless tables batch the result instead of animating every click. Classic keeps its 50 ms cadence. */
+    public void setFastPlayback(final boolean fast) { fastPlayback = fast; }
+
+    private void schedulePlayback(final boolean accepted) {
+        if (fastPlayback && accepted) {
+            // Yield to queued InputProxy updates and client controls; never recurse or run on the game thread.
+            FThreads.invokeInEdtLater(this::continuePlayback);
+        } else {
+            FThreads.delayInEDT(fastPlayback ? 1 : 50, this::continuePlayback);
+        }
+    }
+
     @Override
     public void nextRememberedAction() {
         if (actions.isEmpty()) {
@@ -427,7 +441,7 @@ public class RecordActionsMacroSystem implements IMacroSystem {
         restartPlaybackActions();
         debug("start loops=" + loops + " actions=" + describeActions(playbackActions));
         playerControllerHuman.getInputQueue().updateObservers();
-        FThreads.delayInEDT(50, this::continuePlayback);
+        schedulePlayback(true);
     }
 
     private void continuePlayback() {
@@ -438,6 +452,12 @@ public class RecordActionsMacroSystem implements IMacroSystem {
 
         if (playbackActions.isEmpty()) {
             if (repeatIteration >= repeatIterations) {
+                // forge-table: the last action (usually a pass) is still resolving on the game thread. Stay "replaying"
+                // until the game asks again, so the table neither ends its batch nor hands priority back mid-resolution.
+                if (!isSettled() && ++playbackRetries <= MAX_REJECTED_ACTION_RETRIES * (fastPlayback ? 50 : 1)) {
+                    schedulePlayback(false);
+                    return;
+                }
                 finishPlayback();
                 return;
             }
@@ -446,27 +466,38 @@ public class RecordActionsMacroSystem implements IMacroSystem {
             playerControllerHuman.getInputQueue().updateObservers();
         }
 
+        final Input before = playerControllerHuman.getInputProxy().getInput();
         final int actionIndex = processNextAcceptedAction();
         if (actionIndex >= 0) {
             playbackActions.remove(actionIndex);
             playbackRetries = 0;
+            lastActedInput = before;
         } else if (actionIndex == WAIT_FOR_NEXT_INPUT) {
-            if (++playbackRetries > MAX_WAIT_RETRIES) {
+            if (++playbackRetries > MAX_WAIT_RETRIES * (fastPlayback ? 50 : 1)) {
                 stopPlayback("stopped waiting");
                 return;
             }
-        } else if (++playbackRetries > MAX_REJECTED_ACTION_RETRIES) {
+        } else if (++playbackRetries > MAX_REJECTED_ACTION_RETRIES * (fastPlayback ? 50 : 1)) {
             stopPlayback("stopped");
             return;
         }
 
-        FThreads.delayInEDT(50, this::continuePlayback);
+        schedulePlayback(actionIndex >= 0);
+    }
+
+    /** The game is waiting on a new, shown Input: not the one the last replayed action answered. */
+    private boolean isSettled() {
+        final Input inp = playerControllerHuman.getInputProxy().getInput();
+        return inp != null && !(inp instanceof InputLockUI) && inp != lastActedInput
+                && inp == playerControllerHuman.getInputProxy().getShownInput();
     }
 
     private int processNextAcceptedAction() {
         final Input inp = playerControllerHuman.getInputProxy().getInput();
         debug("input=" + describeInput() + " remaining=" + describeActions(playbackActions));
-        if (inp instanceof InputLockUI) {
+        // forge-table: an Input published but not yet shown is half set up (pay-mana inputs pay twice, OK runs the
+        // AI's auto-pay); at 50 ms per step this window was rarely hit, fast playback hits it every few loops.
+        if (inp instanceof InputLockUI || inp != playerControllerHuman.getInputProxy().getShownInput()) {
             return WAIT_FOR_NEXT_INPUT;
         } else if (inp instanceof InputPassPriority passPriorityInput && passPriorityInput.getChosenSa() != null) {
             return WAIT_FOR_NEXT_INPUT;
@@ -926,6 +957,7 @@ public class RecordActionsMacroSystem implements IMacroSystem {
     }
 
     private void finishPlayback() {
+        lastActedInput = null;
         repeatIteration = 0;
         repeatIterations = 0;
         playbackRetries = 0;

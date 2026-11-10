@@ -2,21 +2,33 @@ package forge.bridge;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.testng.annotations.Test;
 
+import com.google.common.eventbus.Subscribe;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import forge.bridge.match.BridgeGuiGame;
+import forge.bridge.match.TableSession;
 import forge.game.Game;
+import forge.game.event.GameEventPlayerLivesChanged;
 import forge.game.player.Player;
 import forge.gamemodes.match.HostedMatch;
+import forge.gamemodes.match.input.Input;
+import forge.gamemodes.match.input.InputConfirm;
+import forge.gui.FThreads;
+import forge.player.PlayerControllerHuman;
+import forge.player.RecordActionsMacroSystem;
 
 /**
  * The loop shortcut: act {@code loop record} remembers what the player does (Forge's macro recorder), {@code loop
@@ -24,6 +36,130 @@ import forge.gamemodes.match.HostedMatch;
  * the other one, cast it with the mana; Zulaport Cutthroat drains 1 a loop.
  */
 public class LoopShortcutTest {
+
+    /** Cancel is queued before the first playback action: the same Input/pid/body must be shown again. */
+    @Test
+    public void cancellingBeforeTheFirstActionRestoresTheUnchangedPrompt() throws Exception {
+        try (AutoPassTest.Game g = new AutoPassTest.Game("loop-retriever.txt", false)) {
+            final JsonObject p = g.awaitPriority();
+            g.autoKeep = false;
+            loop(g, "record", 0);
+            g.awaitAutoPass(m -> "recording".equals(loopState(m)));
+            playOneLoop(g, p);
+            final PlayerControllerHuman controller = (PlayerControllerHuman) g.sidecar().app.match().getGame()
+                    .getPlayers().stream().filter(pl -> pl.getController() instanceof PlayerControllerHuman)
+                    .findFirst().orElseThrow().getController();
+            final TableSession table = ((BridgeGuiGame) controller.getGui()).table();
+            final RecordActionsMacroSystem macro = (RecordActionsMacroSystem) controller.macros();
+            // Keep the recording, but remove its progress text so cancelling cannot change the prompt body.
+            FThreads.invokeInEdtLater(() -> {
+                macro.finishRecording();
+                macro.cancelPlayback();
+            });
+            g.awaitPrompt(m -> !m.get("message").getAsString().contains("Macro"));
+            final JsonObject before = g.prompt;
+            final Input input = controller.getInputQueue().getInput();
+
+            // Both controls enter the UI queue before repeat() can enqueue its first playback action.
+            FThreads.invokeInEdtLater(() -> {
+                table.onClientMessage(loopMessage("repeat", 3));
+                table.onClientMessage(loopMessage("cancel", 0));
+            });
+            g.awaitAutoPass(m -> "playing".equals(loopState(m)));
+            g.await(m -> PvpClient.is(m, "promptClear", null));
+            g.awaitPrompt(m -> "priority".equals(m.get("kind").getAsString())
+                    && before.get("pid").equals(m.get("pid")));
+            assertEquals(g.prompt.get("message"), before.get("message"));
+            assertSame(controller.getInputQueue().getInput(), input, "no playback action should have run");
+            final String opp = "p0".equals(g.viewer) ? "p1" : "p0";
+            assertEquals(life(g, opp), 19, "cancelled before any repeat");
+            g.awaitAutoPass(m -> loopState(m) == null);
+        }
+    }
+
+    /** An accepted shortcut only waives Bob's priority, not his optional Soul's Attendant trigger. */
+    @Test
+    public void anOpponentConfirmationIsShownDuringPlayback() throws Exception {
+        final Main.Running r = bootPvp("loop-opponent-confirm.txt");
+        try (PvpClient bob = PvpClient.connect(r, 1, "bob");
+                AutoPassTest.Game alice = new AutoPassTest.Game(r, null, false, 0, "alice")) {
+            final JsonObject p = alice.awaitPriority();
+            alice.autoKeep = false;
+            loop(alice, "record", 0);
+            alice.awaitAutoPass(m -> "recording".equals(loopState(m)));
+            playOneLoop(alice, p);
+            assertEquals(lifeOf(r, "bob"), 20, "Bob accepted his optional life gain while recording");
+
+            bob.passive = false;
+            final int offerMark = bob.mark();
+            loop(alice, "done", 3);
+            final long offer = awaitOffer(alice, bob, offerMark, 3);
+            final int mark = bob.mark();
+            answer(bob, offer, true, 0);
+            final JsonObject confirm = bob.await(mark, m -> PvpClient.is(m, "prompt", "confirm"), 5);
+            final PlayerControllerHuman owner = (PlayerControllerHuman) r.app.match().getGame().getPlayers().stream()
+                    .filter(pl -> "alice".equals(pl.getName())).findFirst().orElseThrow().getController();
+            assertTrue(owner.macros().isReplaying(), "the decision must arrive before playback stops");
+            final JsonObject settled = bob.await(mark, m -> PvpClient.is(m, "settle", null)
+                    && m.getAsJsonObject("patch").has("players")
+                    && m.getAsJsonObject("patch").getAsJsonObject("players").entrySet().stream()
+                            .anyMatch(e -> e.getValue().getAsJsonObject().get("life").getAsInt() == 19), 5);
+            assertTrue(settled.get("seq").getAsLong() < confirm.get("seq").getAsLong(),
+                    "the accumulated drain must be delivered before the decision");
+
+            loop(alice, "cancel", 0);
+            alice.awaitAutoPass(m -> loopState(m) == null);
+            final PlayerControllerHuman opponent = (PlayerControllerHuman) r.app.match().getGame().getPlayers().stream()
+                    .filter(pl -> "bob".equals(pl.getName())).findFirst().orElseThrow().getController();
+            assertTrue(opponent.getInputQueue().getInput() instanceof InputConfirm, "only Bob can answer his decision");
+            bob.send(act(confirm, "cancel", null, null));
+            alice.awaitPriority();
+            assertEquals(lifeOf(r, "bob"), 19, "Bob declined the optional gain");
+            alice.send(concedeAct());
+            bob.await(mark, m -> PvpClient.is(m, "gameOver", null), 60);
+        } finally {
+            r.stop();
+        }
+    }
+
+    /** Ticket 1526: no client acts/replies/acks during playback, at normal animation speed, including delivery. */
+    @Test
+    public void aHundredIterationsArriveWithinFiveSeconds() throws Exception {
+        try (AutoPassTest.Game g = new AutoPassTest.Game("loop-retriever-100.txt", false)) {
+            final JsonObject p = g.awaitPriority();
+            g.autoKeep = false;
+            final String opp = "p0".equals(g.viewer) ? "p1" : "p0";
+            loop(g, "record", 0);
+            g.awaitAutoPass(m -> "recording".equals(loopState(m)));
+            playOneLoop(g, p);
+            assertEquals(life(g, opp), 999);
+            final JsonObject speed = new JsonObject();
+            speed.addProperty("t", "act");
+            speed.addProperty("kind", "speed");
+            speed.addProperty("value", 1);
+            g.send(speed);
+
+            final long start = System.nanoTime();
+            loop(g, "done", 100);
+            g.awaitAutoPass(m -> "playing".equals(loopState(m)));
+            final int[] beats = {0};
+            g.await(m -> {
+                if ("beat".equals(m.get("t").getAsString())) {
+                    beats[0]++;
+                }
+                return "prompt".equals(m.get("t").getAsString()) && "priority".equals(m.get("kind").getAsString())
+                        && life(g, opp) == 899 && g.stackSize() == 0;
+            });
+            final long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+            System.out.println("[LoopShortcutTest] 100 repeats took " + elapsedMs + " ms");
+            assertTrue(elapsedMs <= 5000, "100 repeats took " + elapsedMs + " ms");
+            assertTrue(beats[0] < 20, "intermediate actions were animated: " + beats[0] + " beats");
+            assertEquals(life(g, g.viewer), 121);
+            assertEquals(count(g, "Myr Retriever", "Battlefield"), 1);
+            assertEquals(count(g, "Myr Retriever", "Graveyard"), 1);
+            g.awaitAutoPass(m -> loopState(m) == null);
+        }
+    }
 
     @Test
     public void aRecordedLoopRepeatsAgainstTheAi() throws Exception {
@@ -126,16 +262,18 @@ public class LoopShortcutTest {
                 final long offer = awaitOffer(alice, bob, bob.mark(), 50);
                 bob.passive = false;
                 mark = bob.mark();
-                answer(bob, offer, true, 0);
-                waitForLife(r, "bob", 16);
-                assertFalse(bob.anyFrom(mark, m -> PvpClient.is(m, "prompt", "priority")), "bob was asked for priority during the loop");
-                // Stopped partway, the loop can leave something on the stack: bob passes for himself again from here.
-                bob.passive = true;
-                mark = bob.mark();
-                loop(alice, "cancel", 0);
-                alice.awaitAutoPass(m -> loopState(m) == null);
+                try (LoopPause pause = new LoopPause(r, "bob", 16)) {
+                    answer(bob, offer, true, 0);
+                    pause.await();
+                    assertFalse(bob.anyFrom(mark, m -> PvpClient.is(m, "prompt", "priority")), "bob was asked for priority during the loop");
+                    // Hold the engine at an event, not an animation delay: fast playback must still accept Cancel.
+                    bob.passive = true;
+                    mark = bob.mark();
+                    loop(alice, "cancel", 0);
+                    alice.awaitAutoPass(m -> loopState(m) == null);
+                }
                 // Finish the step it stopped in (a drain or two may still resolve), then nothing more happens.
-                drive(alice, alice.prompt, true);
+                drive(alice, null, true);
                 final int stoppedAt = lifeOf(r, "bob");
                 Thread.sleep(1000);
                 assertEquals(lifeOf(r, "bob"), stoppedAt, "the loop stopped when Alice cancelled it");
@@ -164,9 +302,18 @@ public class LoopShortcutTest {
                 loop(alice, "done", 50);
                 final long offer = awaitOffer(alice, bob, 0, 50);
                 bob.passive = false;
-                answer(bob, offer, true, 0);
-                waitForLife(r, "bob", 17);
-                bob.send(concedeAct());
+                try (LoopPause pause = new LoopPause(r, "bob", 17)) {
+                    answer(bob, offer, true, 0);
+                    pause.await();
+                    bob.send(concedeAct());
+                    final long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+                    final Player player = r.app.match().getGame().getPlayers().stream()
+                            .filter(pl -> "bob".equals(pl.getName())).findFirst().orElseThrow();
+                    while (player.getOutcome() == null && System.nanoTime() < until) {
+                        Thread.sleep(10);
+                    }
+                    assertTrue(player.getOutcome() != null, "concede was not handled during playback");
+                }
                 bob.await(0, m -> PvpClient.is(m, "gameOver", null), 60);
                 alice.await(m -> "gameOver".equals(m.get("t").getAsString()));
                 final int over = lifeOf(r, "bob");
@@ -181,8 +328,43 @@ public class LoopShortcutTest {
         }
     }
 
+    /** Deterministic mid-loop control tests: never depend on catching a 50 ms animation/polling window. */
+    public static final class LoopPause implements AutoCloseable {
+        private final String player;
+        private final int life;
+        private final CountDownLatch reached = new CountDownLatch(1);
+        private final CountDownLatch resume = new CountDownLatch(1);
+
+        LoopPause(final Main.Running r, final String player, final int life) {
+            this.player = player;
+            this.life = life;
+            r.app.match().getGame().subscribeToEvents(this);
+        }
+
+        @Subscribe
+        public void receive(final GameEventPlayerLivesChanged event) throws InterruptedException {
+            if (player.equals(event.player().getName()) && event.newLives() == life) {
+                reached.countDown();
+                assertTrue(resume.await(10, TimeUnit.SECONDS), "mid-loop control timed out");
+            }
+        }
+
+        void await() throws InterruptedException {
+            assertTrue(reached.await(30, TimeUnit.SECONDS), "loop did not reach the pause point");
+        }
+
+        @Override
+        public void close() {
+            resume.countDown();
+        }
+    }
+
     /** A game between alice and bob, resumed at the Retriever fixture on alice's main phase. */
     private static Main.Running bootPvp() throws Exception {
+        return bootPvp("loop-retriever.txt");
+    }
+
+    private static Main.Running bootPvp(final String state) throws Exception {
         // Forge's model is booted once per JVM, and writing the save below needs it.
         TableTestEnv.start().stop();
         final Path dir = Files.createTempDirectory("ft-loop-pvp");
@@ -196,7 +378,7 @@ public class LoopShortcutTest {
         c.add("names", names);
         c.addProperty("turn", 3);
         c.addProperty("phase", "MAIN1");
-        c.addProperty("state", Files.readString(Path.of(LoopShortcutTest.class.getClassLoader().getResource("table/states/loop-retriever.txt").toURI())));
+        c.addProperty("state", Files.readString(Path.of(LoopShortcutTest.class.getClassLoader().getResource("table/states/" + state).toURI())));
         Files.writeString(checkpoint, c.toString());
         final Path deck = TableTestEnv.decksDir().toPath().resolve("mono-red-madness.dck");
         Files.copy(deck, Checkpointer.deckFile(checkpoint, 0));
@@ -360,6 +542,10 @@ public class LoopShortcutTest {
     }
 
     static void loop(final AutoPassTest.Game g, final String op, final int times) {
+        g.send(loopMessage(op, times));
+    }
+
+    private static JsonObject loopMessage(final String op, final int times) {
         final JsonObject a = new JsonObject();
         a.addProperty("t", "act");
         a.addProperty("kind", "loop");
@@ -367,7 +553,7 @@ public class LoopShortcutTest {
         if (times != 0) {
             a.addProperty("times", times);
         }
-        g.send(a);
+        return a;
     }
 
     static String loopState(final JsonObject autoPass) {
