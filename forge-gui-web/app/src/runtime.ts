@@ -41,7 +41,7 @@ import { LiveConnection } from './net/connection';
 import { ReplaySource } from './net/replay';
 import type { MessageSource } from './net/source';
 import { guestTable, imageUrl, takeToken, underRouter, wsUrl } from './net/token';
-import type { PileZone } from './overlays/zoneView';
+import { syncZoneStrip, type PileZone } from './overlays/zoneView';
 import { useUi, type Toast } from './store/uiStore';
 import { CARD_SCALE, plateBox, type CardSize } from './layout/geometry';
 import { isAbilityId, stackItemFor } from './layout/stack';
@@ -280,6 +280,7 @@ export class Runtime {
       this.autoPayHidden = autoPayHidden;
       this.autoAnswerAbility();
       useUi.setState({
+        ...syncZoneStrip(d.prompt, useUi.getState()),
         version: d.version,
         viewer: d.viewer,
         shown: d.shown,

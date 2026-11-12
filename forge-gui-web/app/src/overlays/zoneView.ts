@@ -3,7 +3,7 @@
  * player can act on from inside the viewer, and what a closed pile's "playable" badge says.
  */
 import { knownFace } from '../store/model';
-import type { Card, CardId, GameModel, PlayerId, PromptBody } from '@forge-table/protocol';
+import type { Card, CardId, GameModel, PlayerId, PromptBody, ZoneRef } from '@forge-table/protocol';
 import { lastingEffects } from '../table/lastingFx';
 
 /** A pile the viewer opens; `command` is a player's lasting effects (table/lastingFx.ts), their commander left out. */
@@ -57,9 +57,21 @@ export function playableCount(ids: readonly CardId[], prompt: PromptBody | null,
 
 // ------------------------------------------------------------------- the zone strip (a reveal, ZoneStrip.tsx)
 
+/** Sync new bridges' reveals at the playhead, with their choices and settled model, not on notice arrival. */
+export function syncZoneStrip(prompt: PromptBody | null, previous: { prompt: PromptBody | null; zoneStrip: ZoneRef[] | null }) {
+  if (!prompt?.zones) return previous.prompt?.zones ? { zoneStrip: null } : {};
+  const zones = prompt.zones;
+  const same = previous.zoneStrip?.length === zones.length && zones.every((z, i) => {
+    const old = previous.zoneStrip![i]!;
+    return z.player === old.player && z.zone === old.zone;
+  });
+  const reopen = zones.length > 0 && (!same || prompt.pid !== previous.prompt?.pid);
+  return { zoneStrip: zones, ...(reopen ? { zoneStripDismissed: false, pinned: null, preview: null } : {}) };
+}
+
 /** The zone strip is up: the engine shows a zone while a prompt is up, and the player hasn't put it away. */
-export function stripOpen(s: { zoneStrip: readonly unknown[] | null; prompt: unknown; zoneStripDismissed: boolean }): boolean {
-  return !!s.zoneStrip && s.zoneStrip.length > 0 && !!s.prompt && !s.zoneStripDismissed;
+export function stripOpen(s: { zoneStrip: readonly unknown[] | null; prompt: PromptBody | null; zoneStripDismissed: boolean }): boolean {
+  return !!s.zoneStrip && s.zoneStrip.length > 0 && !!s.prompt && s.prompt.kind !== 'waiting' && !s.zoneStripDismissed;
 }
 
 /** How the strip's cards are laid out: their height (CSS px), rows × columns, and the hover zoom. */

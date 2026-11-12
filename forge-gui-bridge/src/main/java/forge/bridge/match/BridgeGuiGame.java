@@ -90,6 +90,9 @@ public final class BridgeGuiGame extends AbstractGuiGame {
     private int selMin;
     private int selMax;
     private boolean promptDirty;
+    /** Zone requests precede Input installation; publish them only with its completed prompt. */
+    private JsonArray pendingZones;
+    private JsonArray promptZones = new JsonArray();
 
     /** Bridge-owned phase stop table: player id -> stop per PhaseType ordinal. */
     private final Map<Integer, boolean[]> stops = Collections.synchronizedMap(new HashMap<>());
@@ -213,9 +216,7 @@ public final class BridgeGuiGame extends AbstractGuiGame {
             }
         }
         if (zones.size() > 0) {
-            final JsonObject n = new JsonObject();
-            n.add("show", zones);
-            table.notice("zones", n);
+            onUi(() -> pendingZones = zones);
         }
         settleLater();
         return shown;
@@ -223,9 +224,11 @@ public final class BridgeGuiGame extends AbstractGuiGame {
 
     @Override
     public void hideZones(final PlayerView controller, final Iterable<PlayerZoneUpdate> zonesToUpdate) {
-        final JsonObject n = new JsonObject();
-        n.addProperty("hide", true);
-        table.notice("zones", n);
+        onUi(() -> {
+            pendingZones = null;
+            promptZones = new JsonArray();
+            promptDirty = true;
+        });
     }
 
     @Override
@@ -282,6 +285,11 @@ public final class BridgeGuiGame extends AbstractGuiGame {
             promptMessage = message == null ? "" : message;
             promptCard = card;
             messagePid = table.consistentPid();
+            if (pendingZones != null && messagePid >= 0
+                    && !"waiting".equals(InputDescriber.kind(table.shownInput()))) {
+                promptZones = pendingZones;
+                pendingZones = null;
+            }
             promptDirty = true;
         });
     }
@@ -404,6 +412,7 @@ public final class BridgeGuiGame extends AbstractGuiGame {
     JsonObject describePrompt(final ViewProjector projector) {
         final ViewCodec.Refs refs = projector.sentRefs();
         final JsonObject p = new JsonObject();
+        p.add("zones", promptZones.deepCopy());
         p.addProperty("message", promptMessage);
         if (promptCard != null) {
             final String id = refs.card(promptCard);

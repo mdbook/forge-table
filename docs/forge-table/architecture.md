@@ -46,6 +46,11 @@ server's `/img/card/` and `/img/crop/` endpoints.
 `forge-gui-web/protocol` holds the message types, including properties generated from Forge's `TrackableProperty`.
 `forge-gui-web/tests` holds the Playwright tests, which replay recorded sessions without a server.
 
+Temporary zone choices (graveyard, exile, library and other zones) travel in the prompt's `zones` field, alongside
+its computed legal choices. The client opens and sorts the zone strip only when that prompt reaches the playhead,
+after the preceding model patches. Waiting prompts do not open the strip, and non-legal cards remain inspectable
+but do not submit a choice. Older recorded sessions can still use `notice{zones}`.
+
 ## The sidecar
 
 `forge.bridge.Main` boots Forge headless, with its own `IGuiBase` implementation in place of the desktop UI, and

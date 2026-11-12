@@ -402,6 +402,9 @@ test('replay: damage assignment, divided damage (O7) and surveil lanes', async (
   // Enter the remaining top tile before parking, so the preview always receives a real leave event.
   await page.getByTestId('ask-item-1').hover();
   await park();
+  // This recording has no zone reveal for surveil: the arrange ask owns the cards, not a second zone strip.
+  await expect(page.getByTestId('zone-strip')).toHaveCount(0);
+  await expect(page.getByTestId('zone-strip-reopen')).toHaveCount(0);
   await expect(page).toHaveScreenshot(`${SPLIT_SHOTS[2]!.name}.png`);
 
   await page.evaluate(() => window.__table.waitForGameOver());

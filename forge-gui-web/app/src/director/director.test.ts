@@ -107,6 +107,34 @@ describe('Director: two stores', () => {
     expect(d.prompt?.pid).toBe(p.pid);
   });
 
+  it('publishes zone reveals and legal choices together, after their settled zone contents', () => {
+    const { d, step } = setup();
+    const old = prompt();
+    old.selectable = ['c1'];
+    old.zones = [];
+    d.receive(old);
+    d.update();
+    d.receive(draw('c1'));
+    d.receive(draw('c2'));
+    d.receive({ t: 'settle', seq: ++seq, patch: {
+      players: { p0: { id: 'p0', life: 20, zones: { graveyard: ['c1', 'c2'] } } },
+      cards: { c1: card('c1', 'Graveyard'), c2: card('c2', 'Graveyard') },
+    } });
+    const choice = prompt('chooseTargets');
+    choice.selectable = ['c2'];
+    choice.zones = [{ player: 'p0', zone: 'Graveyard' }];
+    d.receive(choice);
+    d.update();
+    expect(d.prompt?.zones).toEqual([]); // no early reveal using old.selectable
+    step(DUR.draw * 2 + 32);
+    expect(d.prompt?.zones).toEqual(choice.zones);
+    expect(d.prompt?.selectable).toEqual(['c2']);
+    expect(d.shown.players.p0?.zones.graveyard).toEqual(['c1', 'c2']);
+    // A reconnect includes the reveal in its prompt, without needing a transient notice.
+    d.snapshot({ ...snapshot(d.lastSeq), prompt: choice });
+    expect(d.prompt?.zones).toEqual(choice.zones);
+  });
+
   it('staggers consecutive taps by 40 ms instead of 180 ms each', () => {
     const { d, step } = setup();
     for (const id of ['c1', 'c2', 'c3']) d.receive(tap(id));

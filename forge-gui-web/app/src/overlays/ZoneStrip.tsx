@@ -1,5 +1,5 @@
 /**
- * The zone strip, MTGA-style: when the engine temporarily shows zones (`notice{zones}`), as with the
+ * The zone strip, MTGA-style: when the engine temporarily shows zones (the prompt's `zones`), as with the
  * opponent's hand revealed or choosing from a graveyard, exile or a library, their visible cards are dealt out big
  * over a dimmed, slightly blurred table (which also hides any open card preview), under a light title
  * ("Opponent's hand · 5 cards"). Clicking one is the same `act{card}` as clicking it on the table; hovering (or
@@ -13,7 +13,7 @@
  * Reduced motion: plain fades.
  */
 import type { CardId, Card } from '@forge-table/protocol';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useIsPresent } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { CardFaceView } from '../cards/CardFaceView';
 import { CARD_RADIUS } from '../layout/geometry';
@@ -22,7 +22,7 @@ import { useUi } from '../store/uiStore';
 import { hudScale } from './askCards';
 import { PickBadge } from './PickBadge';
 import { pickBadge, picksOf } from '../table/selection';
-import { countLabel, fanSlot, revealFit, stripOpen } from './zoneView';
+import { countLabel, fanSlot, revealFit, stripOpen, viewerAction } from './zoneView';
 import { useBattlefieldPeek } from './BattlefieldPeek';
 import { lowerFirst } from './peek';
 
@@ -89,7 +89,7 @@ export function ZoneStrip() {
   return (
     <>
       <AnimatePresence>{open && <Reveal key="reveal" groups={groups} calm={calm} away={peek} />}</AnimatePresence>
-      {dismissed && zones && zones.length > 0 && prompt && (
+      {dismissed && zones && zones.length > 0 && prompt && prompt.kind !== 'waiting' && (
         <button className="btn chip zr-reopen" data-testid="zone-strip-reopen" onClick={() => useUi.setState({ zoneStripDismissed: false })}>
           {groups.map((g) => `${g.label} · ${countLabel(g.ids.length)}`).join('  ·  ')}
         </button>
@@ -101,6 +101,8 @@ export function ZoneStrip() {
 function Reveal({ groups, calm, away }: { groups: Group[]; calm: boolean; away: { className: string; inert: boolean | undefined } }) {
   const model = useUi((s) => s.shown);
   const prompt = useUi((s) => s.prompt);
+  const blocked = useUi((s) => s.asks.length > 0);
+  const present = useIsPresent();
   const [peek, setPeek] = useState<CardId | null>(null);
   const { vw, vh } = useViewport();
   // A strip that changes under the pointer never sees a mouseleave: drop the zoom with it.
@@ -119,7 +121,7 @@ function Reveal({ groups, calm, away }: { groups: Group[]; calm: boolean; away: 
   return (
     <motion.div
       className={`zone-reveal-scrim${away.className}`}
-      inert={away.inert}
+      inert={!present || away.inert}
       data-testid="zone-strip"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1, transition: { duration: calm ? 0.15 : 0.2, ease: [0, 0, 0.2, 1] } }}
@@ -180,7 +182,7 @@ function Reveal({ groups, calm, away }: { groups: Group[]; calm: boolean; away: 
                       <button
                         className={`zr-card${pick ? ' selected' : selectable.has(id) ? ' selectable' : ''}${peek === id ? ' peek' : ''}`}
                         style={{ width: w, height: fit.h }}
-                        onClick={() => runtime().clickCard(id)}
+                        onClick={() => present && viewerAction(id, prompt, blocked) && runtime().clickCard(id)}
                         onMouseEnter={() => setPeek(id)}
                         onFocus={() => setPeek(id)}
                         onBlur={() => setPeek((p) => (p === id ? null : p))}

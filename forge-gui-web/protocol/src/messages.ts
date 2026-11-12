@@ -407,6 +407,8 @@ export interface PromptBody {
   cancel: ButtonState;
   focusOk: boolean;
   selectable: CardId[];
+  /** Temporary zone reveals, published atomically with the computed choices; [] hides them. Absent on older bridges. */
+  zones?: ZoneRef[];
   selMin?: number;
   selMax?: number;
   highlighted: string[];

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Card, GameModel, PromptBody } from '@forge-table/protocol';
 import { knownFace, modelOf, peeked } from '../store/model';
-import { countLabel, fanSlot, playableCount, revealFit, showsBack, stripOpen, viewerAction, zoneCards, zoneTitle } from './zoneView';
+import { countLabel, fanSlot, playableCount, revealFit, showsBack, stripOpen, syncZoneStrip, viewerAction, zoneCards, zoneTitle } from './zoneView';
 
 const card = (id: string, face = 'Original'): Card => ({ id, zone: 'Graveyard', state: { face, name: id } });
 
@@ -83,11 +83,26 @@ describe('foretold faces (handoff 5)', () => {
 describe('the zone strip (a reveal)', () => {
   it('is up while the engine shows a zone and a prompt is up, until the player puts it away', () => {
     const z = [{ player: 'p1', zone: 'Hand' }];
-    expect(stripOpen({ zoneStrip: z, prompt: {}, zoneStripDismissed: false })).toBe(true);
-    expect(stripOpen({ zoneStrip: z, prompt: {}, zoneStripDismissed: true })).toBe(false);
+    expect(stripOpen({ zoneStrip: z, prompt: prompt(), zoneStripDismissed: false })).toBe(true);
+    expect(stripOpen({ zoneStrip: z, prompt: prompt(), zoneStripDismissed: true })).toBe(false);
     expect(stripOpen({ zoneStrip: z, prompt: null, zoneStripDismissed: false })).toBe(false);
-    expect(stripOpen({ zoneStrip: [], prompt: {}, zoneStripDismissed: false })).toBe(false);
-    expect(stripOpen({ zoneStrip: null, prompt: {}, zoneStripDismissed: false })).toBe(false);
+    expect(stripOpen({ zoneStrip: z, prompt: prompt({ kind: 'waiting' }), zoneStripDismissed: false })).toBe(false);
+    expect(stripOpen({ zoneStrip: [], prompt: prompt(), zoneStripDismissed: false })).toBe(false);
+    expect(stripOpen({ zoneStrip: null, prompt: prompt(), zoneStripDismissed: false })).toBe(false);
+  });
+
+  it('syncs reveals with the prompt, preserving dismissal across selection updates but not new prompts', () => {
+    const zones = [{ player: 'p0', zone: 'Graveyard' }];
+    const p = prompt({ kind: 'chooseTargets', zones });
+    const state = { prompt: p, zoneStrip: zones };
+    expect(syncZoneStrip(p, { prompt: null, zoneStrip: null })).toEqual({ zoneStrip: zones, zoneStripDismissed: false, pinned: null, preview: null });
+    expect(syncZoneStrip({ ...p, zones: [...zones], highlighted: ['c1'] }, state)).toEqual({ zoneStrip: zones });
+    expect(syncZoneStrip({ ...p, pid: 2 }, state)).toHaveProperty('zoneStripDismissed', false);
+    expect(syncZoneStrip({ ...p, zones: [{ player: 'p1', zone: 'Exile' }] }, state)).toHaveProperty('zoneStripDismissed', false);
+    expect(syncZoneStrip({ ...p, zones: [] }, state)).toEqual({ zoneStrip: [] });
+    expect(syncZoneStrip(null, state)).toEqual({ zoneStrip: null });
+    // Old recordings still use notice{zones}.
+    expect(syncZoneStrip(prompt(), { prompt: prompt(), zoneStrip: zones })).toEqual({});
   });
 
   it('desktop: five cards in one big row, capped; the hover zoom is a modest lift', () => {
