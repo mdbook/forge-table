@@ -3,6 +3,8 @@
 Read this before you change anything in this repository. It's written for AI coding agents and for people new to
 the code, and it only states what the repo actually does.
 
+Read docs/STANDARDS.md and docs/DESIGN.md before changing code or UI.
+
 ## What this repo is
 
 Forge Table is a web client and a game server for playing Magic in the browser, built on the
@@ -99,7 +101,8 @@ changed and you can't explain is a regression, not a new baseline.
 ## Docs
 
 User docs start at `docs/README.md`; the pages are in `docs/forge-table/`. `RUNBOOK.md` there is maintainer notes.
-The other files in `docs/` are upstream Forge's and describe the desktop app.
+`docs/STANDARDS.md` (code) and `docs/DESIGN.md` (look and brand) are Forge Table's too. The other files in `docs/`
+are upstream Forge's and describe the desktop app.
 
 When you add or change a setting, update the row in `docs/forge-table/configuration.md` (flag, `FT_*` variable,
 default, what it does) and the commented line in `forge-table.env.example`. When you change how something works,
