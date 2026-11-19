@@ -13,6 +13,7 @@ import type { Runtime } from '../runtime';
 import { useUi } from '../store/uiStore';
 import { ActionCluster, useKeyboard } from './Actions';
 import { ConfirmPrompt } from './ConfirmPrompt';
+import { HistoryPanel } from './HistoryPanel';
 import { MulliganBanner } from './MulliganBanner';
 import { CornerMenu, GameOverPanel, HoverPreview, PinnedPreview } from './Panels';
 import { StartScreen } from './StartScreen';
@@ -77,6 +78,7 @@ export function App({ runtime, onHost }: { runtime: Runtime; onHost: (el: HTMLDi
           <ConfirmPrompt />
           <ManaPromptPicker />
           <GameOverPanel />
+          <HistoryPanel />
           <Toasts />
           <RestartBanner />
           <PvpBanner />

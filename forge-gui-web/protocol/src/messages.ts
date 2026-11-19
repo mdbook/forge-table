@@ -572,6 +572,36 @@ export type NoticeMsg =
   | { t: 'notice'; kind: 'restart'; seconds: number; message?: string }
   | { t: 'notice'; kind: string & {}; [field: string]: unknown };
 
+/**
+ * Lines of the game's Forge log, for the history panel. Outside the seq order: a line can show before its beat plays.
+ * `from` 0 starts the list over (a new game or a reconnect); otherwise the entries go on from index `from`.
+ */
+export interface LogMsg {
+  t: 'log';
+  /** The engine game the lines belong to: a new id means a new game. */
+  game: number;
+  from: number;
+  entries: LogEntry[];
+}
+
+/** One log line, stamped with when it was written. */
+export interface LogEntry {
+  /** 0 before the first turn (mulligans). */
+  turn: number;
+  /** The step it was written in; absent before the first turn. */
+  phase?: Phase;
+  /** Whose turn it was. */
+  active?: PlayerId;
+  /** Forge's `GameLogEntryType` in camelCase: `stackAdd`, `zoneChange`, `combat`, `damage`, `life`, `land`, … */
+  kind: string;
+  /** Forge's line, card ids removed. */
+  text: string;
+  /** The player the line is about: its card's controller, or the player it starts with. */
+  player?: PlayerId;
+  /** The line's card, when the text names it. */
+  card?: string;
+}
+
 /** Messages that take a place in the seq order (and so pass through the Director's queue). */
 export type SequencedMessage =
   | BeatMsg
@@ -588,6 +618,7 @@ export type ServerMessage =
   | SnapshotMsg
   | NoticeMsg
   | PvpMsg
+  | LogMsg
   | SequencedMessage;
 
 /** Narrow a decoded message to the ones that carry a seq and so go through the Director. */

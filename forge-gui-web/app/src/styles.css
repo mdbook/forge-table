@@ -9669,3 +9669,336 @@ a.btn {
     min-height: 44px;
   }
 }
+
+/* ---------------------------------------------------------------- game history (HistoryPanel.tsx) */
+
+.corner-menu .hist-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6 * var(--u));
+}
+
+.corner-menu .hist-btn.on {
+  border-color: var(--brass);
+  color: var(--text);
+}
+
+.hist-icon {
+  flex: none;
+  width: max(12px, calc(14 * var(--u)));
+  height: max(12px, calc(14 * var(--u)));
+}
+
+/* A floating window, top left under the plates' row; dragged by its header (--hx / --hy). Above the game-over
+   scrim (30) and the PvP banner (55), under the restart banner and flash (60) and sheets (80). */
+.hist {
+  position: fixed;
+  top: calc(64 * var(--u));
+  left: calc(16 * var(--u));
+  z-index: 57;
+  display: flex;
+  flex-direction: column;
+  width: min(calc(100vw - 32px), calc(380 * var(--u)));
+  height: min(72vh, calc(520 * var(--u)));
+  min-width: 260px;
+  min-height: 220px;
+  transform: translate(var(--hx, 0), var(--hy, 0));
+  resize: both;
+  overflow: hidden;
+  background: rgba(20, 23, 28, 0.97);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-3);
+  animation: hist-in var(--dur-base) var(--ease-enter) both;
+}
+
+@keyframes hist-in {
+  from { opacity: 0; scale: 0.97; }
+}
+
+.hist-grab {
+  display: none;
+  flex: none;
+  width: 40px;
+  height: 4px;
+  margin: 8px auto 0;
+  border-radius: 2px;
+  background: rgba(232, 234, 238, 0.22);
+}
+
+.hist-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  padding: calc(10 * var(--u)) calc(10 * var(--u)) calc(6 * var(--u)) calc(14 * var(--u));
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+}
+
+.hist-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: max(11px, calc(15 * var(--u)));
+  font-weight: 600;
+}
+
+.hist-state {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(5 * var(--u));
+  padding: calc(2 * var(--u)) calc(8 * var(--u));
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: max(9px, calc(11 * var(--u)));
+  color: var(--text-muted);
+}
+
+.hist-state.live::before {
+  content: "";
+  width: calc(6 * var(--u));
+  height: calc(6 * var(--u));
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.hist-close {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.hist-close:hover {
+  background: var(--surface3);
+  color: var(--text);
+}
+
+.hist-tools {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--u));
+  padding: 0 calc(14 * var(--u)) calc(8 * var(--u));
+}
+
+.hist-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: calc(7 * var(--u)) calc(10 * var(--u));
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font: inherit;
+  font-size: max(11px, calc(13 * var(--u)));
+}
+
+.hist-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(6 * var(--u));
+}
+
+.hist-filters .btn.chip {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.hist-filters .btn.chip.on {
+  background: var(--surface3);
+  color: var(--text);
+  border-color: var(--brass);
+}
+
+.hist-body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 calc(6 * var(--u)) calc(8 * var(--u));
+}
+
+.hist-turn-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: calc(8 * var(--u));
+  padding: calc(8 * var(--u)) calc(8 * var(--u)) calc(4 * var(--u));
+  background: rgba(20, 23, 28, 0.98);
+  border-bottom: 1px solid var(--border);
+  font-size: max(10px, calc(12 * var(--u)));
+  font-weight: 600;
+}
+
+.hist-turn-head .num {
+  color: var(--steel);
+}
+
+.hist-turn-head.mine .num {
+  color: var(--ember);
+}
+
+.hist-turn-head .who {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.hist-step {
+  padding: calc(6 * var(--u)) calc(8 * var(--u)) calc(2 * var(--u));
+  font-size: max(9px, calc(11 * var(--u)));
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.hist-line {
+  display: grid;
+  grid-template-columns: calc(18 * var(--u)) 1fr;
+  gap: calc(6 * var(--u));
+  align-items: start;
+  padding: calc(3 * var(--u)) calc(8 * var(--u));
+  border-radius: var(--radius-sm);
+  font-size: max(11px, calc(13 * var(--u)));
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.hist-line:hover {
+  background: var(--surface2);
+}
+
+.hist-line.opp {
+  color: var(--text-muted);
+}
+
+.hist-line .hist-icon {
+  margin-top: calc(2 * var(--u));
+  color: var(--text-faint);
+}
+
+.hist-line.zone .hist-icon { color: var(--brass); }
+.hist-line.combat .hist-icon { color: var(--attack); }
+.hist-line.life .hist-icon { color: var(--danger); }
+.hist-line.stack .hist-icon { color: var(--steel); }
+.hist-line.land .hist-icon { color: var(--success); }
+
+.hist-card {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.hist-card.live {
+  border-bottom: 1px dotted var(--text-muted);
+  cursor: help;
+}
+
+.hist-empty {
+  padding: calc(24 * var(--u));
+  text-align: center;
+  color: var(--text-muted);
+  font-size: max(11px, calc(13 * var(--u)));
+}
+
+.hist-new {
+  position: sticky;
+  bottom: calc(6 * var(--u));
+  z-index: 2;
+  display: block;
+  margin: 0 auto;
+  padding: calc(4 * var(--u)) calc(12 * var(--u));
+  border: 0;
+  border-radius: 999px;
+  background: var(--ember);
+  color: var(--on-ember);
+  font: inherit;
+  font-size: max(10px, calc(12 * var(--u)));
+  font-weight: 600;
+  box-shadow: var(--elev-2);
+  cursor: pointer;
+}
+
+.hist-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  padding: calc(8 * var(--u)) calc(14 * var(--u));
+  border-top: 1px solid var(--border);
+}
+
+.hist-count {
+  flex: 1;
+  font-size: max(9px, calc(11 * var(--u)));
+  color: var(--text-muted);
+}
+
+/* The hovered card's preview, over the panel. */
+.hud > .hist-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 58;
+  pointer-events: none;
+}
+
+/* Phones and touch screens: a bottom sheet, not a window. */
+@media (max-width: 520px), (pointer: coarse) {
+  .hist {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: min(68dvh, 560px);
+    max-width: 720px;
+    margin: 0 auto;
+    transform: none;
+    resize: none;
+    border-bottom: 0;
+    border-top-color: var(--brass-dim);
+    border-radius: 18px 18px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation-name: hist-sheet-in;
+  }
+
+  .hist-grab {
+    display: block;
+  }
+
+  .hist-head {
+    cursor: default;
+  }
+
+  .hist-close,
+  .hist-filters .btn.chip,
+  .hist-foot .btn.chip {
+    min-height: 44px;
+  }
+
+  .hist-close {
+    width: 44px;
+  }
+}
+
+@keyframes hist-sheet-in {
+  from { transform: translateY(40px); opacity: 0; }
+}
+
+.rm .hist,
+.test-mode .hist {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hist {
+    animation: none;
+  }
+}

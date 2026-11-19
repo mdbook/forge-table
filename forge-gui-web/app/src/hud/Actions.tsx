@@ -213,6 +213,8 @@ export function useKeyboard(): void {
         return;
       }
       if (e.repeat) return;
+      // The history panel's own buttons keep their keys (Space on a filter chip must not pass priority).
+      if (target?.closest('.hist')) return;
       const rt = runtime();
       // Overlays (asks, the zone viewer) bind their own keys.
       if (rt.visibleAsks().length > 0 || rt.director.gameOver || ui.zoneView) return;
@@ -224,6 +226,7 @@ export function useKeyboard(): void {
       if (action === 'passTurn') rt.togglePassToEndOfTurn();
       else if (action === 'stopPassing') rt.setPassToEndOfTurn(false);
       else if (action === 'autoSkip') rt.toggleAutoSkip();
+      else if (action === 'history') useUi.setState({ historyOpen: !ui.historyOpen });
       else if (action === 'resolveAll') {
         // Only at my priority with something to resolve, as the chip.
         if (rt.inputLive && ui.prompt?.kind === 'priority' && ui.shown.game.stack.length > 0) rt.resolveAll();

@@ -34,6 +34,7 @@ import { beatCosts } from './director/choreography';
 import { AutoPay, paying } from './hud/autoPay';
 import { rememberedAnswer } from './hud/autoResponses';
 import { primaryLabel, type ButtonSpec, type Buttons } from './hud/primaryLabel';
+import { appendLog } from './hud/history';
 import { aiCopy, defaultAi, legalDeck, setNeuralLabel } from './hud/start';
 import { takeHandoff } from './lobby/newGame';
 import { gameIdFromPath, rememberedDeck } from './lobby/pvp';
@@ -330,6 +331,9 @@ export class Runtime {
         return;
       case 'pvp':
         this.onPvp(m);
+        return;
+      case 'log':
+        useUi.setState((s) => ({ history: appendLog(s.history, m) }));
         return;
       case 'snapshot':
         this.director.snapshot(m);

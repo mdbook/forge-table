@@ -46,6 +46,14 @@ Auto-skip so you can see what's on and click it off again.
   partway (the outlet's gone, you run out of mana), the replay stops after a few seconds of retrying and you get
   your normal prompt back. The repeats already done stay done. Click the Looping chip to stop early.
 
+### Can I see what happened earlier in the game?
+
+Yes. History in the settings corner (or H) opens the game's log: every cast, land, attack, life change and card
+moved, grouped by turn and step, with filters and a search box. Hover a card's name to see the card. It stays
+open while you play, and Game history on the end-of-game screen shows it after the game. Copy and Download .txt
+give you the whole game as text, handy for a bug report. It's the same log Forge shows every player, so it never
+names a face-down or hidden card. It lasts until the next game starts; nothing is kept after you leave.
+
 ### Is anything saved?
 
 Imported decks, each user's results against other players and decks, the card-art cache, and games in progress.

@@ -1,5 +1,5 @@
 /**
- * Full panels: the game-over panel, the settings gear (speed, card size, effects, concede) and the hover preview. The start
+ * Full panels: the game-over panel, the settings gear (history, speed, card size, effects, concede) and the hover preview. The start
  * screen lives in StartScreen.tsx.
  */
 import type { Card } from '@forge-table/protocol';
@@ -14,6 +14,7 @@ import { guestTable, underRouter } from '../net/token';
 import { runtime, SPEEDS } from '../runtime';
 import { isSummoningSick } from '../store/model';
 import { useUi } from '../store/uiStore';
+import { HistoryIcon } from './HistoryPanel';
 import { rematchView } from './pvp';
 import type { Effects } from '../director/director';
 import { stripOpen } from '../overlays/zoneView';
@@ -69,6 +70,9 @@ export function GameOverPanel() {
           </div>
         )}
         <div className="row">
+          <button className="btn secondary" data-testid="game-history" onClick={() => useUi.setState({ historyOpen: true })}>
+            Game history
+          </button>
           {underRouter() && !guestTable() && (
             <a className="btn ghost" href="/" data-testid="to-lobby">
               Lobby
@@ -142,6 +146,7 @@ export function CornerMenu() {
   const inMatch = useUi((s) => s.inMatch);
   const gameOver = useUi((s) => s.gameOver);
   const still = useUi((s) => s.reducedMotion);
+  const historyOpen = useUi((s) => s.historyOpen);
   const [confirming, setConfirming] = useState(false);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -172,6 +177,21 @@ export function CornerMenu() {
         <GearIcon />
       </button>
       <div className={`corner-menu${still ? ' still' : ''}`} role="group" aria-label="Settings">
+        {inMatch && (
+          <button
+            className={`btn chip ghost hist-btn${historyOpen ? ' on' : ''}`}
+            data-testid="history-toggle"
+            aria-pressed={historyOpen}
+            title="Game history (H)"
+            onClick={() => {
+              useUi.setState({ historyOpen: !historyOpen });
+              setOpen(false);
+            }}
+          >
+            <HistoryIcon />
+            History
+          </button>
+        )}
         <div className="corner-row">
           <span className="corner-label">Speed</span>
           <div className="seg" role="group" aria-label="Animation speed">

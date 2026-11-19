@@ -38,6 +38,12 @@ describe('keyAction', () => {
     expect(keyAction(press('r'), { ...playing, inMatch: false })).toBeNull();
   });
 
+  it('H opens and closes the game history, only in a match', () => {
+    expect(keyAction(press('h'), playing)).toBe('history');
+    expect(keyAction(press('H', { shiftKey: true }), playing)).toBe('history');
+    expect(keyAction(press('h'), { ...playing, inMatch: false })).toBeNull();
+  });
+
   it('Esc stops passing when no prompt waits for an answer, and stays secondary when one does', () => {
     expect(keyAction(press('Escape'), { ...playing, passing: true, inputLive: false })).toBe('stopPassing');
     expect(keyAction(press('Backspace'), { ...playing, passing: true, inputLive: false })).toBe('stopPassing');

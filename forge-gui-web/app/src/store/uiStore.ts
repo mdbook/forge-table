@@ -19,6 +19,7 @@ import type {
 } from '@forge-table/protocol';
 import type { ArtMode } from '../config';
 import type { CardSize } from '../layout/geometry';
+import type { History } from '../hud/history';
 import type { PvpState } from '../hud/pvp';
 import type { MullCount } from '../hud/mulligan';
 import type { ConnectionStatus } from '../net/source';
@@ -113,6 +114,10 @@ export interface UiState {
   handOrder: CardId[];
   /** "Show battlefield": the overlays covering the table, and whether they are put away (overlays/peek.ts). */
   peek: PeekState;
+  /** The game's log lines for the history panel (`t: 'log'`); kept after the game ends for the game-over panel. */
+  history: History | null;
+  /** The history panel is open. */
+  historyOpen: boolean;
 }
 
 export const useUi = create<UiState>(() => ({
@@ -154,4 +159,6 @@ export const useUi = create<UiState>(() => ({
   aimPicked: null,
   handOrder: [],
   peek: NO_PEEK,
+  history: null,
+  historyOpen: false,
 }));

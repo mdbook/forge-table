@@ -103,6 +103,8 @@ public final class TableSession {
     private volatile Consumer<Game> onGameFinished;
     private volatile Consumer<Game> onGameAttached;
     private volatile Supplier<JsonObject> presence;
+    /** The game on screen's log for the history panel; null before the first game. */
+    private volatile GameHistory history;
 
     /** The client's auto-skip toggle (hello {@code client.autoSkip}, absent = on; act {@code autoSkip}). */
     private volatile boolean autoSkip = true;
@@ -183,6 +185,9 @@ public final class TableSession {
                 final EventTap tap = new EventTap(outbox, pacer);
                 game.subscribeToEvents(tap);
                 taps.put(game, tap);
+                final GameHistory h = new GameHistory(outbox, game);
+                history = h;
+                h.watch();
                 final Consumer<Game> attached = onGameAttached;
                 if (attached != null) {
                     attached.accept(game);
@@ -213,6 +218,15 @@ public final class TableSession {
             lastPrompt = null;
             lastPromptCleared = true;
             outbox.bind(gv, viewer, resumeExtras());
+            sendHistory(gv.getGame());
+        }
+    }
+
+    /** After a snapshot: the history of the game it shows, whole (the client starts its list over). Outbox lock. */
+    private void sendHistory(final Game game) {
+        final GameHistory h = history;
+        if (h != null && h.game() == game) {
+            h.sendAll();
         }
     }
 
@@ -965,6 +979,8 @@ public final class TableSession {
             outbox.setSink(sink);
             if (outbox.projector() != null) {
                 outbox.sendSnapshot(resumeExtras());
+                final GameView gv = outbox.gameView();
+                sendHistory(gv == null ? null : gv.getGame());
             }
         }
         pacer.setAttached(true);

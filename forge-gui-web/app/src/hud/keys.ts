@@ -1,9 +1,9 @@
 /**
  * Table keys as a pure function: Space/Enter = primary, Esc/Backspace = secondary, E or Shift+Space =
- * pass until end of turn (again to stop), S = auto-skip on/off, R = resolve all. While passing with no prompt to
+ * pass until end of turn (again to stop), S = auto-skip on/off, R = resolve all, H = game history. While passing with no prompt to
  * answer, Esc stops passing. Letter keys only count without Ctrl/Alt/Meta, and only in a match.
  */
-export type KeyAction = 'primary' | 'secondary' | 'passTurn' | 'stopPassing' | 'autoSkip' | 'resolveAll' | null;
+export type KeyAction = 'primary' | 'secondary' | 'passTurn' | 'stopPassing' | 'autoSkip' | 'resolveAll' | 'history' | null;
 
 export interface KeyPress {
   key: string;
@@ -27,6 +27,7 @@ export function keyAction(e: KeyPress, s: KeyContext): KeyAction {
   if ((e.key === ' ' && e.shiftKey && plain && s.inMatch) || letter === 'e') return 'passTurn';
   if (letter === 's') return 'autoSkip';
   if (letter === 'r') return 'resolveAll';
+  if (letter === 'h') return 'history';
   if (e.key === ' ' || e.key === 'Enter') return 'primary';
   if (e.key === 'Escape' || e.key === 'Backspace') return s.passing && !s.inputLive ? 'stopPassing' : 'secondary';
   return null;
