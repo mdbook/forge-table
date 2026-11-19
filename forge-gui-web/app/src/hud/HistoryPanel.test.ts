@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { LogEntry } from '@forge-table/protocol';
+import type { LogEntry, Player } from '@forge-table/protocol';
 
 vi.mock('../runtime', () => ({ runtime: () => ({ toast: () => {} }) }));
 vi.mock('./Panels', () => ({ FloatingCard: () => null }));
@@ -30,7 +30,7 @@ describe('HistoryPanel', () => {
       historyOpen: true,
       viewer: 'p0',
       history: { game: 1, entries },
-      shown: { ...shown, players: { p0: { id: 'p0', name: 'Alphu', life: 20 }, p1: { id: 'p1', name: 'Blue Terror', life: 20 } } },
+      shown: { ...shown, players: { p0: { id: 'p0', name: 'Alphu', life: 20, zones: {} as Player['zones'] }, p1: { id: 'p1', name: 'Blue Terror', life: 20, zones: {} as Player['zones'] } } },
     });
     const html = renderToStaticMarkup(createElement(HistoryPanel));
     expect(html).toContain('Before the game');
