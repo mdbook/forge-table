@@ -193,15 +193,9 @@ final class PvpClient implements WebSocket.Listener, AutoCloseable {
                     m.getAsJsonArray("asks").forEach(a -> answer(a.getAsJsonObject()));
                 }
             }
+            // A stale press while its prompt is still up is pressed again (play's retry): the server drops presses that
+            // race an ask it is taking down, so only promptClear or a new prompt says the prompt moved on.
             case "promptClear" -> prompt = null;
-            case "notice" -> {
-                // A press the engine dropped (the prompt moved on): don't keep pressing it.
-                final JsonObject was = prompt;
-                if ("stale".equals(m.get("kind").getAsString()) && was != null && m.getAsJsonObject("act").has("pid")
-                        && m.getAsJsonObject("act").get("pid").getAsLong() == was.get("pid").getAsLong()) {
-                    prompt = null;
-                }
-            }
             case "ask" -> answer(m);
             default -> { }
         }

@@ -304,6 +304,14 @@ public class AutoPassTest {
         String viewer;
         /** The helper keeps the opening hand (and answers play-or-draw); off to test the mulligan itself. */
         volatile boolean autoKeep = true;
+        /** The first priority prompt came: the game is dealt, so confirms from here on are the test's to answer. */
+        private boolean dealt;
+        /** The prompt on screen was taken off ({@code promptClear}): its acts are stale for good. */
+        private boolean cleared;
+        private boolean over;
+        /** Resends of acts the server dropped as stale while their prompt was still up. */
+        private int resends;
+        private final java.util.Set<Long> actedOn = new java.util.HashSet<>();
 
         Game(final String state, final boolean autoSkip) throws Exception {
             this(defaultParams(state), autoSkip);
@@ -424,6 +432,14 @@ public class AutoPassTest {
             send(a);
         }
 
+        /**
+         * True the first time for a prompt's pid: a test answering prompts acts once per prompt. A prompt can come
+         * before its selectables (a promptUpdate fills them in), so a test reads updates too and acts on the first it can.
+         */
+        boolean firstActOn(final JsonObject prompt) {
+            return actedOn.add(prompt.get("pid").getAsLong());
+        }
+
         /** Reads until a prompt or prompt update matches. */
         void awaitPrompt(final Predicate<JsonObject> want) throws InterruptedException {
             await(m -> ("prompt".equals(m.get("t").getAsString()) || "promptUpdate".equals(m.get("t").getAsString())) && want.test(m));
@@ -484,8 +500,10 @@ public class AutoPassTest {
                 }
                 case "prompt", "promptUpdate" -> {
                     prompt = m;
+                    cleared = false;
                     final String kind = m.get("kind").getAsString();
-                    if (autoKeep && "prompt".equals(m.get("t").getAsString()) && ("mulligan".equals(kind) || "confirm".equals(kind))) {
+                    dealt |= "priority".equals(kind);
+                    if (autoKeep && !dealt && "prompt".equals(m.get("t").getAsString()) && ("mulligan".equals(kind) || "confirm".equals(kind))) {
                         // Before turn 1 the fixtures still go through play-or-draw and an empty keep.
                         final JsonObject ok = new JsonObject();
                         ok.addProperty("t", "act");
@@ -494,14 +512,46 @@ public class AutoPassTest {
                         send(ok);
                     }
                 }
+                case "promptClear" -> cleared |= prompt != null && prompt.get("pid").getAsLong() == m.get("pid").getAsLong();
+                case "gameOver" -> over = true;
                 case "notice" -> {
                     if ("autoPass".equals(m.get("kind").getAsString())) {
                         autoPass.add(m);
+                    } else if ("stale".equals(m.get("kind").getAsString())) {
+                        resendIfStillUp(m.getAsJsonObject("act"));
                     }
                 }
                 default -> { }
             }
         }
+
+        /**
+         * The server drops an act that races a prompt it is still drawing or an ask it has not yet taken down
+         * ({@code notice stale}); a person clicks again, so the test does too, while that prompt is still the one up.
+         */
+        private void resendIfStillUp(final JsonObject act) {
+            if (act == null || !act.has("pid") || prompt == null || cleared || resends >= MAX_RESENDS
+                    || act.get("pid").getAsLong() != prompt.get("pid").getAsLong()) {
+                return;
+            }
+            try {
+                Thread.sleep(RESEND_MS);
+            } catch (final InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            for (final JsonObject next : inbox) {
+                final String t = next.get("t").getAsString();
+                if ("prompt".equals(t) || "promptClear".equals(t) || "gameOver".equals(t)) {
+                    return;
+                }
+            }
+            resends++;
+            send(act);
+        }
+
+        private static final int MAX_RESENDS = 50;
+        private static final long RESEND_MS = 100;
 
         void send(final JsonObject msg) {
             synchronized (this) {
@@ -523,6 +573,10 @@ public class AutoPassTest {
         @Override
         public void close() throws Exception {
             try {
+                if (over) {
+                    ws.sendClose(WebSocket.NORMAL_CLOSURE, "done");
+                    return;
+                }
                 final JsonObject concede = new JsonObject();
                 concede.addProperty("t", "act");
                 concede.addProperty("kind", "concede");

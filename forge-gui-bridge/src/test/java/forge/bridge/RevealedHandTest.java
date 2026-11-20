@@ -39,28 +39,28 @@ public class RevealedHandTest {
                         g.send(r);
                         return false;
                     }
-                    if (!"prompt".equals(t)) {
+                    if (!"prompt".equals(t) && !"promptUpdate".equals(t)) {
                         return false;
                     }
                     final String kind = m.get("kind").getAsString();
-                    if ("chooseTargets".equals(kind)) {
-                        g.send(act(m, "player", "player", opp));
-                    } else if ("payMana".equals(kind) || "confirm".equals(kind)) {
-                        final JsonObject ok = new JsonObject();
-                        ok.addProperty("t", "act");
-                        ok.addProperty("pid", m.get("pid").getAsLong());
-                        ok.addProperty("kind", "ok");
-                        g.send(ok);
-                    } else if ("priority".equals(kind) && g.stackSize() > 0) {
-                        final JsonObject ok = new JsonObject();
-                        ok.addProperty("t", "act");
-                        ok.addProperty("pid", m.get("pid").getAsLong());
-                        ok.addProperty("kind", "ok");
-                        g.send(ok);
-                    } else if ("priority".equals(kind)) {
+                    if ("priority".equals(kind) && g.stackSize() == 0) {
                         return g.cards.containsKey(duress) && g.cards.get(duress).has("zone")
                                 && "Graveyard".equals(g.cards.get(duress).get("zone").getAsString());
-                    } else if (m.has("selectable") && m.getAsJsonArray("selectable").size() > 0) {
+                    }
+                    final boolean pick = m.has("selectable") && m.getAsJsonArray("selectable").size() > 0;
+                    final boolean ok = "payMana".equals(kind) || "confirm".equals(kind) || "priority".equals(kind);
+                    if (!"chooseTargets".equals(kind) && !ok && !pick || !g.firstActOn(m)) {
+                        return false;
+                    }
+                    if ("chooseTargets".equals(kind)) {
+                        g.send(act(m, "player", "player", opp));
+                    } else if (ok) {
+                        final JsonObject a = new JsonObject();
+                        a.addProperty("t", "act");
+                        a.addProperty("pid", m.get("pid").getAsLong());
+                        a.addProperty("kind", "ok");
+                        g.send(a);
+                    } else {
                         g.send(act(m, "card", "card", m.getAsJsonArray("selectable").get(0).getAsString()));
                     }
                     return false;

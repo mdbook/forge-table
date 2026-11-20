@@ -54,8 +54,13 @@ public class ConcedeTest {
                         g.send(answer(m));
                         return false;
                     }
-                    if ("prompt".equals(t) && "chooseTargets".equals(m.get("kind").getAsString()) && !concedeAt.equals("chooseTargets")) {
-                        final JsonArray sel = m.getAsJsonArray("selectable");
+                    final boolean shown = "prompt".equals(t) || "promptUpdate".equals(t);
+                    // A prompt can come before its selectables; its promptUpdate fills them in.
+                    final JsonArray sel = shown ? m.getAsJsonArray("selectable") : null;
+                    if (shown && "chooseTargets".equals(m.get("kind").getAsString()) && !concedeAt.equals("chooseTargets")) {
+                        if (sel.isEmpty() || !g.firstActOn(m)) {
+                            return false;
+                        }
                         final JsonObject pick = new JsonObject();
                         pick.addProperty("t", "act");
                         pick.addProperty("pid", m.get("pid").getAsLong());
@@ -64,7 +69,7 @@ public class ConcedeTest {
                         g.send(pick);
                         return false;
                     }
-                    return "prompt".equals(t) && concedeAt.equals(m.get("kind").getAsString());
+                    return shown && concedeAt.equals(m.get("kind").getAsString()) && (!behindAClick || !sel.isEmpty());
                 });
                 if (behindAClick) {
                     final JsonObject at = g.prompt;
