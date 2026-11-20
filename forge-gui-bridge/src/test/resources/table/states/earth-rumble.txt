@@ -1,0 +1,12 @@
+# Earth Rumble fixture (TargetPromptTest): my first main phase, Earth Rumble in hand and four Forests to cast it.
+# The AI has two creatures, so the reflexive fight trigger asks for its second target instead of picking one.
+humanlife=20
+ailife=20
+turn=3
+activeplayer=human
+activephase=MAIN1
+humanhand=Earth Rumble
+humanlibrary=Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest;Forest
+humanbattlefield=Forest;Forest;Forest;Forest;Forest
+ailibrary=Island;Island;Island;Island;Island;Island;Island;Island;Island;Island
+aibattlefield=Grizzly Bears;Hill Giant;Island

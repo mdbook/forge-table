@@ -70,6 +70,12 @@ public class InputProxy implements Observer {
         final Runnable showMessage = () -> {
             Input current = getInput();
             controller.getInputQueue().syncPoint();
+            // forge-table: a show queued for an older Input must not paint a newer one: the newer Input's UI work
+            // queued in its constructor (e.g. InputSelectTargets' selectables) may not have run yet. Its own show,
+            // queued after that work by its own update(), paints it.
+            if (current != nextInput) {
+                return;
+            }
             //System.out.printf("\t%s > showMessage @ %s/%s during %s%n", FThreads.debugGetCurrThreadId(), nextInput.getClass().getSimpleName(), current.getClass().getSimpleName(), game.getPhaseHandler().debugPrintState());
             current.showMessageInitial();
             shown.set(current);
