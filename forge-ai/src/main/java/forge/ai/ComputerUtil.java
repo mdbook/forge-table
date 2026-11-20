@@ -20,6 +20,7 @@ package forge.ai;
 import com.google.common.collect.*;
 
 import forge.ai.AiCardMemory.MemorySet;
+import forge.ai.ability.ManaAi;
 import forge.ai.ability.ProtectAi;
 import forge.ai.ability.TokenAi;
 import forge.card.CardStateName;
@@ -567,6 +568,14 @@ public class ComputerUtil {
 
         if (typeList.size() < amount) {
             return null;
+        }
+
+        // forge-table: a sacrifice engine's outlet gets the creature that comes back (ManaAi.chooseEngineFodder)
+        if (!effect && amount == 1) {
+            final Card fodder = ManaAi.chooseEngineFodder(ai, ability);
+            if (fodder != null && typeList.contains(fodder)) {
+                return new CardCollection(fodder);
+            }
         }
 
         final CardCollection sacList = new CardCollection();

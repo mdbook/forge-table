@@ -7,8 +7,11 @@ import forge.card.mana.ManaAtom;
 import forge.card.mana.ManaCost;
 import forge.game.CardTraitPredicates;
 import forge.game.ability.AbilityUtils;
+import forge.game.ability.ApiType;
 import forge.game.card.*;
+import forge.game.cost.Cost;
 import forge.game.cost.CostRemoveCounter;
+import forge.game.cost.CostSacrifice;
 import forge.game.keyword.Keyword;
 import forge.game.mana.Mana;
 import forge.game.mana.ManaPool;
@@ -17,7 +20,10 @@ import forge.game.phase.PhaseType;
 import forge.game.player.Player;
 import forge.game.player.PlayerCollection;
 import forge.game.player.PlayerPredicates;
+import forge.game.spellability.AbilityManaPart;
 import forge.game.spellability.SpellAbility;
+import forge.game.trigger.Trigger;
+import forge.game.trigger.TriggerType;
 import forge.game.zone.ZoneType;
 import forge.util.Aggregates;
 import forge.util.IterableUtil;
@@ -95,6 +101,12 @@ public class ManaAi extends SpellAbilityAi {
 
         // TODO check if it would be worth it to keep mana open for opponents turn anyway
         if (ComputerUtil.activateForCost(sa, ai)) {
+            return new AiAbilityDecision(100, AiPlayDecision.WillPlay);
+        }
+
+        // the cast and the trigger need sorcery timing, and the cap stops an engine that never runs dry
+        if (ai.canCastSorcery() && sa.getActivationsThisTurn() < MAX_ENGINE_SPINS_PER_TURN
+                && chooseEngineFodder(ai, sa) != null) {
             return new AiAbilityDecision(100, AiPlayDecision.WillPlay);
         }
 
@@ -251,6 +263,138 @@ public class ManaAi extends SpellAbilityAi {
 
         // TODO: this will probably still waste the card from time to time. Somehow improve detection of castable material.
         return castableSpells.size() > 0;
+    }
+
+    @Override
+    protected boolean willPayCosts(final Player payer, final SpellAbility sa, final Cost cost, final Card source) {
+        // an engine creature comes back, so losing it is not the cost the generic check takes it for
+        return chooseEngineFodder(payer, sa) != null || super.willPayCosts(payer, sa, cost, source);
+    }
+
+    // forge-table: sacrifice-and-recursion engines; written to go upstream as is
+    /** Laps of a sacrifice engine per outlet ability per turn; ComputerUtil.preventRunAwayActivations starts at 10 too. */
+    private static final int MAX_ENGINE_SPINS_PER_TURN = 10;
+
+    /**
+     * Finds the creature to feed a sacrifice-for-mana ability when that keeps a recursion engine running, or null.
+     * One lap: the creature dies and its own trigger returns a card from the graveyard to hand, the outlet's mana
+     * recasts that card, and a payoff triggers on the cast, the card entering or the creature dying (Ashnod's Altar,
+     * Myr Retriever and Golem Foundry). Read from abilities, so any engine of that shape qualifies.
+     * Timing is left to the caller so cost payment can ask the same question mid-activation.
+     */
+    public static Card chooseEngineFodder(final Player ai, final SpellAbility sa) {
+        final Cost cost = sa.getPayCosts();
+        // ponytail: only outlets whose whole cost is one sacrifice (Ashnod's / Phyrexian Altar); extend when an
+        // engine needs life or tapping too, and then check those parts as willPayCosts does
+        if (!sa.isManaAbility() || cost == null || cost.getCostParts().size() != 1
+                || !(cost.getCostParts().get(0) instanceof CostSacrifice sac)
+                || sac.payCostFromSource() || sac.getAbilityAmount(sa) != 1) {
+            return null;
+        }
+        final int produced = sa.amountOfManaGenerated(true);
+        if (produced <= 0) {
+            return null;
+        }
+        final Card outlet = sa.getHostCard();
+        final CardCollection fodder = CardLists.filter(
+                CardLists.getValidCards(ai.getCardsIn(ZoneType.Battlefield), sac.getType().split(";"), ai, outlet, sa),
+                CardPredicates.CREATURES, CardPredicates.canBeSacrificedBy(sa, false));
+        final byte colors = producedColors(sa);
+        for (final Card dying : fodder) {
+            final Trigger recursion = recursionTrigger(dying);
+            if (recursion == null) {
+                continue;
+            }
+            final SpellAbility returns = recursion.ensureAbility();
+            for (final Card back : CardLists.getValidCards(ai.getCardsIn(ZoneType.Graveyard),
+                    returns.getTargetRestrictions().getValidTgts(), ai, dying, returns)) {
+                if (lapPaysOff(ai, dying, recursion, back, produced, colors) && (dying.hasSVar("SacMe")
+                        || back.isCreature() && ComputerUtilCard.evaluateCreature(back) >= ComputerUtilCard.evaluateCreature(dying))) {
+                    return dying;
+                }
+            }
+            // nothing to return yet: worth priming when another engine creature brings this one back next lap
+            if (!dying.hasSVar("SacMe")) {
+                continue;
+            }
+            for (final Card next : fodder) {
+                final Trigger nextRecursion = next == dying ? null : recursionTrigger(next);
+                if (nextRecursion != null
+                        && dying.isValid(nextRecursion.ensureAbility().getTargetRestrictions().getValidTgts(), ai, next, nextRecursion.ensureAbility())
+                        && lapPaysOff(ai, next, nextRecursion, dying, produced, colors)) {
+                    return dying;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** The creature's own dies trigger that returns a targeted card from the graveyard to hand, or null. */
+    private static Trigger recursionTrigger(final Card creature) {
+        for (final Trigger t : creature.getTriggers()) {
+            if (t.getMode() != TriggerType.ChangesZone || !zoneParamIncludes(t, "Origin", "Battlefield")
+                    || !zoneParamIncludes(t, "Destination", "Graveyard") || !t.matchesValidParam("ValidCard", creature)) {
+                continue;
+            }
+            final SpellAbility effect = t.ensureAbility();
+            if (effect != null && effect.getApi() == ApiType.ChangeZone && effect.usesTargeting()
+                    && "Graveyard".equals(effect.getParam("Origin")) && "Hand".equals(effect.getParam("Destination"))) {
+                return t;
+            }
+        }
+        return null;
+    }
+
+    /** Whether the returned card can be recast from the outlet's mana alone and something pays off on the lap. */
+    private static boolean lapPaysOff(final Player ai, final Card dying, final Trigger recursion, final Card back,
+            final int produced, final byte colors) {
+        final ManaCost cost = back.getManaCost();
+        if (back == dying || back.isLand() || back.getSpells().isEmpty() || cost.countX() > 0
+                || cost.getCMC() > produced || !cost.canBePaidWithAvailable(colors)) {
+            return false;
+        }
+        final CardCollection watchers = new CardCollection(ai.getCardsIn(ZoneType.Battlefield));
+        watchers.add(back);
+        for (final Card c : watchers) {
+            for (final Trigger t : c.getTriggers()) {
+                if (t == recursion) {
+                    continue;
+                }
+                final boolean fires = switch (t.getMode()) {
+                    case SpellCast, SpellCastOrCopy -> c != back && t.matchesValidParam("ValidCard", back)
+                            && t.matchesValidParam("ValidActivatingPlayer", ai);
+                    case ChangesZone -> zoneParamIncludes(t, "Destination", "Battlefield")
+                            ? back.isPermanent() && zoneParamIncludes(t, "Origin", "Stack") && t.matchesValidParam("ValidCard", back)
+                            : c != back && zoneParamIncludes(t, "Origin", "Battlefield")
+                                    && zoneParamIncludes(t, "Destination", "Graveyard") && t.matchesValidParam("ValidCard", dying);
+                    default -> false;
+                };
+                if (fires) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean zoneParamIncludes(final Trigger t, final String param, final String zone) {
+        if (!t.hasParam(param) || "Any".equals(t.getParam(param))) {
+            return true;
+        }
+        return Arrays.asList(t.getParam(param).split(",")).contains(zone);
+    }
+
+    private static byte producedColors(final SpellAbility sa) {
+        byte colors = 0;
+        for (final AbilityManaPart part : sa.getAllManaParts()) {
+            if (part.isAnyMana()) {
+                return MagicColor.ALL_COLORS;
+            }
+            for (final String mana : part.mana(sa).split(" ")) {
+                colors |= MagicColor.fromName(mana);
+            }
+        }
+        return colors;
     }
 
     private boolean improvesPosition(Player ai, SpellAbility sa) {

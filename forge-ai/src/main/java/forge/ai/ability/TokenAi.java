@@ -109,6 +109,12 @@ public class TokenAi extends SpellAbilityAi {
                 && sa.getSubAbility().getApi() == ApiType.DelayedTrigger;
         boolean isCreature = actualToken.isCreature();
 
+        // counters stockpiled on the source are as exposed as the token would be, so holding the token for the
+        // opponent's turn gains nothing; cash in after combat (a counter engine may fill the source again this turn)
+        if (ph.isPlayerTurn(ai) && ph.is(PhaseType.MAIN2) && !oneShot && !sa.isPwAbility() && paidOnlyWithOwnCounters(sa)) {
+            return true;
+        }
+
         // Don't generate tokens without haste before main 2 if possible
         if (ph.getPhase().isBefore(PhaseType.MAIN2) && ph.isPlayerTurn(ai) && !haste && !sa.hasParam("ActivationPhases")
                 && !ComputerUtil.castSpellInMain1(ai, sa)) {
@@ -128,6 +134,21 @@ public class TokenAi extends SpellAbilityAi {
             return false;
         }
         return (!ph.getPhase().isAfter(PhaseType.COMBAT_BEGIN) && ph.isPlayerTurn(ai)) || !oneShot;
+    }
+
+    /** Whether the whole cost is removing counters from the source that do nothing else for it (Golem Foundry). */
+    private static boolean paidOnlyWithOwnCounters(final SpellAbility sa) {
+        final Cost cost = sa.getPayCosts();
+        if (cost == null || cost.getCostParts().isEmpty()) {
+            return false;
+        }
+        for (final CostPart part : cost.getCostParts()) {
+            if (!(part instanceof CostRemoveCounter remove) || !part.payCostFromSource()
+                    || remove.counter.is(CounterEnumType.P1P1) || remove.counter.is(CounterEnumType.LOYALTY)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
