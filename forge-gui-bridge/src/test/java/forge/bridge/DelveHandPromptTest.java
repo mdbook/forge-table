@@ -38,23 +38,19 @@ public class DelveHandPromptTest {
         try (AutoPassTest.Game g = new AutoPassTest.Game("delve-hand.txt", false)) {
             final JsonObject p = awaitPriorityWithNoAsk(g);
             playFromHand(g, p, "Treasure Cruise");
+            final JsonObject[] early = {null};
 
             // Exactly one real delve prompt: the "how many cards?" chooser.
-            final JsonObject ask = g.await(m -> "ask".equals(m.get("t").getAsString()));
-            assertEquals(ask.get("kind").getAsString(), "choose", "unexpected ask: " + ask);
+            final JsonObject ask = g.await(m -> keepWaiting(m, early) || "ask".equals(m.get("t").getAsString()));
+            assertEquals(ask.get("kind").getAsString(), "choose", "unexpected ask: " + ask + "; " + g.recent());
             assertTrue(ask.has("items") && ask.getAsJsonArray("items").size() > 1, "no real delve choice offered: " + ask);
 
             // Decline to delve (idx 0 = "delve 0 cards"): no "which card to exile" follow-up, and no second
             // delve-amount ask either, before the next real prompt (payMana).
             reply(g, ask, 0);
-
-            g.await(m -> {
-                final String t = m.get("t").getAsString();
-                if ("ask".equals(t)) {
-                    fail("a second delve-related prompt after declining: " + m);
-                }
-                return "prompt".equals(t);
-            });
+            redeliverLate(g, early);
+            final JsonObject next = awaitNextRealPrompt(g, "a second delve-related prompt after declining");
+            assertEquals(next.get("kind").getAsString(), "payMana", "unexpected prompt after declining: " + next + "; " + g.recent());
         }
     }
 
@@ -67,29 +63,61 @@ public class DelveHandPromptTest {
         try (AutoPassTest.Game g = new AutoPassTest.Game("delve-hand-required.txt", false)) {
             final JsonObject p = awaitPriorityWithNoAsk(g);
             playFromHand(g, p, "Treasure Cruise");
+            final JsonObject[] early = {null};
 
-            final JsonObject amountAsk = g.await(m -> "ask".equals(m.get("t").getAsString()));
-            assertEquals(amountAsk.get("kind").getAsString(), "choose", "unexpected ask: " + amountAsk);
+            final JsonObject amountAsk = g.await(m -> keepWaiting(m, early) || "ask".equals(m.get("t").getAsString()));
+            assertEquals(amountAsk.get("kind").getAsString(), "choose", "unexpected ask: " + amountAsk + "; " + g.recent());
             assertTrue(amountAsk.has("items") && amountAsk.getAsJsonArray("items").size() > 1, "no real delve choice offered: " + amountAsk);
             reply(g, amountAsk, 7);
+            redeliverLate(g, early);
 
             // Expect exactly 7 "which card to exile" follow-ups (real delve mechanics), never a repeat of
-            // the amount-ask itself, then the next real prompt (payMana).
+            // the amount-ask itself, then the next real prompt (payMana). The waiting prompt the game thread's
+            // work puts up between asks is not a real prompt: it has no action by design.
             for (int i = 0; i < 7; i++) {
-                final JsonObject exileAsk = g.await(m -> "ask".equals(m.get("t").getAsString()) || "prompt".equals(m.get("t").getAsString()));
-                assertEquals(exileAsk.get("t").getAsString(), "ask", "expected exile-choice #" + (i + 1) + ", got: " + exileAsk);
-                assertTrue(exileAsk.get("message").getAsString().startsWith("Exile which card"), "unexpected ask: " + exileAsk);
+                final JsonObject exileAsk = g.await(m -> !AutoPassTest.Game.isWaiting(m)
+                        && ("ask".equals(m.get("t").getAsString()) || "prompt".equals(m.get("t").getAsString())));
+                assertEquals(exileAsk.get("t").getAsString(), "ask", "expected exile-choice #" + (i + 1) + ", got: " + exileAsk + "; " + g.recent());
+                assertTrue(exileAsk.get("message").getAsString().startsWith("Exile which card"), "unexpected ask: " + exileAsk + "; " + g.recent());
                 reply(g, exileAsk, 0);
             }
 
-            g.await(m -> {
-                final String t = m.get("t").getAsString();
-                if ("ask".equals(t)) {
-                    fail("an unexpected prompt after delving the full amount: " + m);
-                }
-                return "prompt".equals(t);
-            });
+            final JsonObject next = awaitNextRealPrompt(g, "an unexpected prompt after delving the full amount");
+            assertEquals(next.get("kind").getAsString(), "payMana", "unexpected prompt after delving: " + next + "; " + g.recent());
         }
+    }
+
+    /** False always; keeps a waiting prompt that came before the first ask. */
+    private static boolean keepWaiting(final JsonObject m, final JsonObject[] early) {
+        if (AutoPassTest.Game.isWaiting(m)) {
+            early[0] = m;
+        }
+        return false;
+    }
+
+    /**
+     * The cast puts a waiting prompt up (no Input while the game thread casts) from bridge-ui, while the game thread
+     * sends its asks itself, so it can land before the first ask or after it. Here it usually comes first; a slow CI
+     * runner had it after the reply (GitHub run 44740490111). Hand it back then, every run.
+     */
+    private static void redeliverLate(final AutoPassTest.Game g, final JsonObject[] early) {
+        if (early[0] != null) {
+            g.redeliver(early[0]);
+        }
+    }
+
+    /** Reads to the next prompt that isn't a waiting one (nothing to do there, by design), failing if an ask comes first. */
+    private static JsonObject awaitNextRealPrompt(final AutoPassTest.Game g, final String askFailure) throws InterruptedException {
+        return g.await(m -> {
+            if (AutoPassTest.Game.isWaiting(m)) {
+                return false;
+            }
+            final String t = m.get("t").getAsString();
+            if ("ask".equals(t)) {
+                fail(askFailure + ": " + m + "; " + g.recent());
+            }
+            return "prompt".equals(t);
+        });
     }
 
     private static void reply(final AutoPassTest.Game g, final JsonObject ask, final int choiceIdx) {

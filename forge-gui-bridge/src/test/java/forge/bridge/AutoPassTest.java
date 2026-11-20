@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -293,7 +294,7 @@ public class AutoPassTest {
     static final class Game implements AutoCloseable, WebSocket.Listener {
         private final Main.Running sidecar;
         private final WebSocket ws;
-        private final BlockingQueue<JsonObject> inbox = new LinkedBlockingQueue<>();
+        private final LinkedBlockingDeque<JsonObject> inbox = new LinkedBlockingDeque<>();
         private final StringBuilder partial = new StringBuilder();
         final List<JsonObject> autoPass = new ArrayList<>();
         final java.util.Map<String, JsonObject> cards = new java.util.HashMap<>();
@@ -312,6 +313,9 @@ public class AutoPassTest {
         /** Resends of acts the server dropped as stale while their prompt was still up. */
         private int resends;
         private final java.util.Set<Long> actedOn = new java.util.HashSet<>();
+        /** The last messages read, so a failure carries the order the server sent them in. */
+        private final java.util.ArrayDeque<String> transcript = new java.util.ArrayDeque<>();
+        private static final int TRANSCRIPT = 40;
 
         Game(final String state, final boolean autoSkip) throws Exception {
             this(defaultParams(state), autoSkip);
@@ -459,16 +463,50 @@ public class AutoPassTest {
             while (true) {
                 final JsonObject m = inbox.poll(Math.max(1, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
                 if (m == null) {
-                    fail("timed out; game " + game + "; last prompt " + prompt);
+                    fail("timed out; game " + game + "; last prompt " + prompt + "; " + recent());
                 }
+                record(m);
                 apply(m);
                 if (want.test(m)) {
                     return m;
                 }
                 if ("gameOver".equals(m.get("t").getAsString())) {
-                    fail("game ended first: " + m);
+                    fail("game ended first: " + m + "; " + recent());
                 }
             }
+        }
+
+        private void record(final JsonObject m) {
+            final StringBuilder b = new StringBuilder(m.get("t").getAsString());
+            for (final String k : new String[] {"seq", "kind", "pid", "id"}) {
+                if (m.has(k) && m.get(k).isJsonPrimitive()) {
+                    b.append(' ').append(k).append('=').append(m.get(k).getAsString());
+                }
+            }
+            if (m.has("message") && m.get("message").isJsonPrimitive()) {
+                final String text = m.get("message").getAsString().replace('\n', ' ');
+                b.append(" \"").append(text, 0, Math.min(40, text.length())).append('"');
+            }
+            if (transcript.size() == TRANSCRIPT) {
+                transcript.removeFirst();
+            }
+            transcript.addLast(b.toString());
+        }
+
+        /** The last messages read, oldest first: put this in an assertion message so a CI failure shows the order. */
+        String recent() {
+            return "last " + transcript.size() + " messages: " + String.join(" | ", transcript);
+        }
+
+        /** Reads {@code m} again next, ahead of anything queued: replays an order a slower box could give. */
+        void redeliver(final JsonObject m) {
+            inbox.offerFirst(m);
+        }
+
+        /** The prompt bar while the game thread works (no Input up): nothing to do, by design. */
+        static boolean isWaiting(final JsonObject m) {
+            return ("prompt".equals(m.get("t").getAsString()) || "promptUpdate".equals(m.get("t").getAsString()))
+                    && m.has("kind") && "waiting".equals(m.get("kind").getAsString());
         }
 
         private void apply(final JsonObject m) {
