@@ -430,9 +430,10 @@ export class CardSprite {
    * bottom-left, and summoning sickness as a small "zZ" in the top-left corner of the art. `revealedToOpponent`
    * (a hand card shown to an opponent, e.g. Duress) draws an eye badge in the art's top-left corner, clear of the cost
    * ({@link revealedSpot}). It's the only badge that applies to a hand card, so it's a separate flag rather than read
-   * off `card` (which is `undefined` in hand).
+   * off `card` (which is `undefined` in hand). `under`: a copy stacked under a group's top card (layout.ts groupUnits)
+   * draws none, the top card's carry them (identical copies, so the same marks).
    */
-  setBadges(card: Card | undefined, baseH: number, pt: PtChip | null = null, snoozed = false, count = 0, revealedToOpponent = false): void {
+  setBadges(card: Card | undefined, baseH: number, pt: PtChip | null = null, snoozed = false, count = 0, revealedToOpponent = false, under = false): void {
     const counters = card?.counters ?? {};
     const damage = card?.damage ?? 0;
     const sick = isSummoningSick(card);
@@ -450,12 +451,14 @@ export class CardSprite {
     // its icon pops in, only once the icons can be painted.
     if (this.gained && manaReady() && gained.some((k) => !this.gained!.includes(k))) this.gainPending = true;
     this.gained = framed && card?.zone === 'Battlefield' && !card.facedown ? gained : null;
-    const key = `${JSON.stringify(counters)}|${damage}|${sick}|${pt ? `${pt.text}:${pt.tone}` : ''}|${framed}|${Math.round(baseH)}|${count}|${this.prot?.key ?? ''}|${gained.join(',')}|${manaReady()}|${revealedToOpponent}`;
+    const key = `${JSON.stringify(counters)}|${damage}|${sick}|${pt ? `${pt.text}:${pt.tone}` : ''}|${framed}|${Math.round(baseH)}|${count}|${this.prot?.key ?? ''}|${gained.join(',')}|${manaReady()}|${revealedToOpponent}|${under}`;
     if (key === this.badgeKey) return;
     this.badgeKey = key;
     this.chromeH = baseH;
     // The marks sprite owns its painted texture; the rest share theirs.
     for (const c of this.badges.removeChildren()) c.destroy({ children: true, texture: c.label === 'marks', textureSource: c.label === 'marks' });
+    // Peeking out to the right, a second set would smear across the top card's (QA: a ×2 pile's P/T plate lit twice).
+    if (under) return;
     const u = baseH / 150;
     const font = 16 * u;
     const pills: BadgeSpec[] = [];
@@ -861,6 +864,16 @@ export interface BadgePlace {
   x: number;
   y: number;
   scale: number;
+}
+
+/**
+ * A card's chrome zIndex over its card's `viewZ`: just above the card, under whatever overlaps it, so a card on top
+ * covers this one's badges as it covers its face. Row cards step z by 2 (layout.ts place), so half a step; a copy
+ * stacked `under` a group's top card sits only 0.05 below it, so its chrome stays closer than that. A `lifted`
+ * strip card's cost draws above the cards beside it, which overlap it (its neighbour's halo would cut it).
+ */
+export function chromeZ(viewZ: number, under: boolean, lifted: boolean): number {
+  return viewZ + (lifted ? 100 : under ? 0.01 : 0.5);
 }
 
 /** Height of a badge pill and the gaps around it, for a card `baseH` tall. */

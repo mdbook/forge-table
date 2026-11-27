@@ -210,3 +210,13 @@ session('costs', ({ add, card, land, zones, cards, extra }) => {
   for (let i = 0; i < 3; i++) add(land('p1'));
   return weak;
 });
+
+// 10. Piles of identical modified creatures (ticket 3376): each ×N pile shows one set of marks, the top card's.
+session('piles', ({ add, card, land }) => {
+  for (let i = 0; i < 4; i++) add(land('p0'));
+  for (let i = 0; i < 2; i++) add(card('p0', 'Battlefield', 'Grizzly Bears', { colors: 'G', power: 3, toughness: 3, printedPower: 2, printedToughness: 2 }));
+  for (let i = 0; i < 2; i++) add(card('p0', 'Battlefield', 'Llanowar Elves', { colors: 'G', power: 2, toughness: 2, printedPower: 1, printedToughness: 1, counters: { P1P1: 1 }, damage: 1 }));
+  for (let i = 0; i < 3; i++) add(card('p0', 'Battlefield', 'Goblin Guide', { power: 2, toughness: 2 }));
+  for (let i = 0; i < 3; i++) add(land('p1'));
+  for (let i = 0; i < 2; i++) add(card('p1', 'Battlefield', 'Faerie Seer', { colors: 'U', power: 0, toughness: 1, printedPower: 1, printedToughness: 1 }));
+});

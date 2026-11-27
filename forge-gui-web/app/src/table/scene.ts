@@ -24,7 +24,7 @@ import { manaValue } from '../cards/mana';
 import { backOut, clamp01, cubicBezier, easeInOut, enter, exit, lerp, snappy, standard, type Easing } from '../util/easing';
 import { fonts, fx, table } from '../theme/tokens';
 import { TableBackground, tableMarkings } from './background';
-import { CardSprite, poseToTransform, showsRevealedBadge, type RingKind, type Transform } from './cardSprite';
+import { CardSprite, chromeZ, poseToTransform, showsRevealedBadge, type RingKind, type Transform } from './cardSprite';
 import { pickBadge, picksOf, ringFor } from './selection';
 import { hasKeyword, isLand, knownFace } from '../store/model';
 import { KW, rippleDelay } from '../director/keywords';
@@ -948,16 +948,15 @@ export class TableScene {
       const chip = !inHand && (st.sprite.showingArt || st.sprite.showingFramed) ? ptChip(card, printedPt) : null;
       // A commander waiting in the command zone shows its cost with the tax (Brawl; table/commander.ts).
       const cost = inHand ? (swap?.cost ?? ui.prompt?.costs?.[st.sprite.id]) : st.target?.region === 'command' ? commanderCost(d.shown, st.sprite.id, card?.state?.manaCost) : alt?.cost;
-      st.sprite.setBadges(inHand ? undefined : card, base, chip, snoozed, st.target?.count ?? 0, showsRevealedBadge(inHand, card));
+      const under = !!st.target?.under;
+      st.sprite.setBadges(inHand ? undefined : card, base, chip, snoozed, st.target?.count ?? 0, showsRevealedBadge(inHand, card), under);
       st.sprite.setCost(cost, alt ? knownFace(card) : card?.state, base, now, d.calm);
       // Ambient keyword motion (sickness Z's, a flyer's hover) and the edge rim, for battlefield cards.
       const field = !!st.target && BATTLEFIELD.has(st.target.region) && st.removingAt === null;
       const fly = field && !dragged && st.motion?.kind !== 'flight' && hasKeyword(card, KW.flying);
-      st.sprite.ambient(now, mode, fly, field, base, !!st.target?.under, LABEL_MIN_PX / this.scale);
+      st.sprite.ambient(now, mode, fly, field, base, under, LABEL_MIN_PX / this.scale);
       st.sprite.apply();
-      // Badges sit on their card, just above it: a card overlapping this one covers them as it covers the card.
-      // (A strip card's cost draws above the cards beside it, which overlap it: its neighbour's halo would cut it.)
-      st.sprite.chrome.zIndex = st.sprite.view.zIndex + (st.target?.region === 'alt' && st.motion?.kind !== 'flight' ? 100 : 0.5);
+      st.sprite.chrome.zIndex = chromeZ(st.sprite.view.zIndex, under, st.target?.region === 'alt' && st.motion?.kind !== 'flight');
     }
     this.updateMood(layout, now, dt, myPriority ? breath : null);
     const resolve = (e: ArrowEnd) => this.arrowEnd(e, ui);

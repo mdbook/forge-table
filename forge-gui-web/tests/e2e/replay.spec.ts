@@ -1013,6 +1013,7 @@ const FRAMED_SHOTS = [
   { name: '58-ambient-keywords', title: 'Ambient keywords: indestructible\'s steel sheen mid-pass (Grizzly Bears), trample\'s green stomp under the bottom edge (Grizzly Bears, Colossal Dreadmaw), deathtouch\'s violet haze and lifelink\'s pulse ringing out (Serra Angel)' },
   { name: '59-framed-hand-fanned', title: 'Framed art mode, a 15-card hand fanned and tilted at rest: the M15 frame\'s rules text sharp on every card, not mip-blurred' },
   { name: '60-framed-tokens', title: 'Framed art mode, combat: a vanilla Goblin token attacking and a vanilla Faerie Rogue token blocking, both clear art the whole way down with no empty rules box' },
+  { name: '73-framed-piles', title: 'Framed art mode, piles of identical creatures: a pumped ×2 Grizzly Bears, a ×2 Llanowar Elves with a counter and damage and a shrunk ×2 Faerie Seer each light one P/T plate and one set of marks (the top card\'s); the plain ×3 Goblin Guide pile unchanged' },
 ];
 /** A framed golden's file name, looked up by its number (not its index in FRAMED_SHOTS). */
 const framedShot = (n: number) => `${FRAMED_SHOTS.find((s) => s.name.startsWith(`${n}-`))!.name}.png`;
@@ -1168,6 +1169,13 @@ test('replay: Framed art mode draws a token\'s tall art window, clear of an empt
   const sprites = await page.evaluate(() => window.__table.sprites());
   expect(sprites.filter((s) => s.framed).length).toBeGreaterThanOrEqual(10);
   await expect(page).toHaveScreenshot(framedShot(60));
+  expect(gate.errors).toEqual([]);
+});
+
+test('replay: Framed art mode marks a pile of modified creatures once, on its top card', async ({ page }) => {
+  const gate = gateConsole(page);
+  await openFramed(page, 'stress-piles', [], 9);
+  await expect(page).toHaveScreenshot(framedShot(73));
   expect(gate.errors).toEqual([]);
 });
 
